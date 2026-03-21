@@ -2,6 +2,26 @@
 
 A high-performance, secure, and modern WebRTC application built with **Mediasoup (SFU)**, **Bun**, and **Next.js 16**.
 
+## ✨ Key Features
+- **SFU Architecture**: Leverages Mediasoup for high-bandwidth, multi-user media routing instead of resource-intensive Mesh/P2P.
+- **Low Latency**: Sub-250ms latency for global video/audio streaming.
+- **Security First**: JWT-authenticated signaling and Mediasoup DTLS/SRTP protection.
+- **Modern UI/UX**: Next.js 16 powered with View Transitions API and Partial Prerendering (PPR).
+- **Type Safety**: End-to-end TypeScript with Zod-OpenAPI for self-documenting APIs.
+- **High-Fidelity Media**: Support for 1080p60 streaming with adaptive simulcast layers (HD, SD, Low) for optimal performance.
+- **Scalable Infrastructure**: Containerized with Docker and ready for Kubernetes.
+
+
+## 🛠️ Technical Stack
+- **Runtime**: [Bun](https://bun.sh/) (Server & Tooling)
+- **Media Engine**: [Mediasoup](https://mediasoup.org/) (SFU / Selective Forwarding Unit)
+- **Backend Framework**: [Hono](https://hono.dev/) (with Zod-OpenAPI)
+- **Frontend Framework**: [Next.js 16](https://nextjs.org/) (App Router & PPR)
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
+- **API Documentation**: [Swagger UI](https://swagger.io/) & [AsyncAPI](https://www.asyncapi.com/)
+- **Containerization**: [Docker](https://www.docker.com/) (Distroless Node)
+
+
 ## 🚀 Quick Start
 
 1.  **Install Bun**: `curl -fsSL https://bun.sh/install | bash`
@@ -14,9 +34,16 @@ A high-performance, secure, and modern WebRTC application built with **Mediasoup
 - **`apps/web`**: Next.js 16 Frontend (App Router, Tailwind 4)
 - **`docs/`**: Detailed project documentation.
 
-## 📡 Data Flow & Signaling
+## 📡 Architecture & Signaling Flow
 
+The application uses a dual-protocol approach: **REST** for authentication and system health, and **Secure WebSockets (WSS)** for low-latency media signaling. 
+
+> [!TIP]
+> For a full deep-dive including JSON examples and event references, check the **[Signaling & Media Flow Guide](docs/architecture.md)**.
+
+### Session Lifecycle Sequence
 Below is the sequence of events between the Client (Next.js) and Server (Bun/Mediasoup) for a typical meeting session.
+
 
 ```mermaid
 sequenceDiagram
