@@ -35,9 +35,51 @@ sequenceDiagram
     S-->>C: response { success: true }
 ```
 
+-   [6. resume-consumer](#6-resume-consumer)
+
+## 🌐 REST API Endpoints
+
+The signaling server provides several REST endpoints for authentication and system health monitoring.
+
+### 1. `POST /auth/login`
+Generates a JWT token required to connect to the WebSocket signaling server.
+- **Request Body**:
+  ```json
+  {
+    "userId": "user-123",
+    "userName": "John Doe",
+    "roomId": "room-abc"
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5..."
+  }
+  ```
+
+### 2. `GET /health`
+Returns the operational status of the signaling server and its Mediasoup workers.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "ok",
+    "uptime": 123.45,
+    "mediasoup": {
+      "workerPid": 1234,
+      "roomsCount": 1
+    }
+  }
+  ```
+
+### 3. Documentation Endpoints
+- **`GET /docs`**: Interactive Swagger UI for the REST API.
+- **`GET /asyncapi`**: Static AsyncAPI specification for the WebSocket protocol.
+
 ---
 
 ## 📄 Event Reference with Example Data
+
 
 Below are JSON examples for the signaling events handled in `apps/server/index.ts`.
 
