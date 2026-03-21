@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { Metadata } from 'next';
 
 type Props = {
-    params: { roomId: string };
+    params: Promise<{ roomId: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
