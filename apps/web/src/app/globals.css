@@ -262,3 +262,25 @@
   80%, 100% { opacity: 0; }
 }
 
+
+/* ============================================================
+   View Transitions API Styles
+   ============================================================ */
+@layer utilities {
+  .vt-logo {
+    view-transition-name: logo;
+  }
+  .vt-room-id {
+    view-transition-name: room-id;
+  }
+  .vt-user-form {
+    view-transition-name: user-form;
+  }
+}
+
+/* Optional: Customize transition animations */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.4s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
