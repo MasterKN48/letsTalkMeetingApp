@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import { MediasoupClient } from '@/lib/mediasoup';
 import { 
   Video, 
@@ -13,11 +14,18 @@ import {
   ShieldCheck, 
   Loader2, 
   ArrowRight,
+  Share,
 } from 'lucide-react';
+import { ThemeToggleButton } from '@/components/ui/theme-toggle';
+import { PerspectiveGrid } from '@/components/ui/perspective-grid';
+import { LiquidMetalButton } from '@/components/ui/liquid-metal';
+import { GlassDock } from '@/components/ui/glass-dock';
+import { cn } from '@/lib/utils';
 
 export default function RoomPage() {
   const { roomId } = useParams() as { roomId: string };
-  const [userName, setUserName] = useState<string>('');
+  const searchParams = useSearchParams();
+  const [userName, setUserName] = useState<string>(searchParams.get("username") || '');
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, { stream: MediaStream, userName: string }>>(new Map()); // Key: userId
   const [isJoined, setIsJoined] = useState(false);
@@ -39,10 +47,6 @@ export default function RoomPage() {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         setLocalStream(stream);
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-        
-        const params = new URLSearchParams(window.location.search);
-        const nameFromUrl = params.get('name');
-        if (nameFromUrl) setUserName(nameFromUrl);
       } catch (err) {
         console.error('Mic/Cam access denied:', err);
         setError('Camera/Microphone access denied. Please enable permissions in your browser.');
@@ -155,6 +159,13 @@ export default function RoomPage() {
   };
 
   useEffect(() => {
+    const nameFromUrl = searchParams.get('username');
+    if (nameFromUrl && !userName) {
+      setUserName(nameFromUrl);
+    }
+  }, [searchParams, userName]);
+
+  useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
     }
@@ -180,18 +191,61 @@ export default function RoomPage() {
     }
   };
 
+  const dockItems = [
+    {
+      title: audioMuted ? "Unmute" : "Mute",
+      icon: audioMuted ? MicOff : Mic,
+      onClick: toggleAudio,
+      activeClassName: audioMuted ? "bg-destructive text-black" : "",
+    },
+    {
+      title: videoOff ? "Start Video" : "Stop Video",
+      icon: videoOff ? VideoOff : Video,
+      onClick: toggleVideo,
+      activeClassName: videoOff ? "bg-destructive text-black" : "",
+    },
+    {
+      title: "Share Room",
+      icon: Share,
+      onClick: () => {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        if (navigator.share) {
+          navigator.share({
+            url: cleanUrl,
+          }).catch(console.error);
+        } else {
+          navigator.clipboard.writeText(cleanUrl);
+          alert("Link copied to clipboard!");
+        }
+      },
+      activeClassName: "hover:bg-foreground/10 text-foreground",
+    },
+    {
+      title: "Leave",
+      icon: PhoneOff,
+      onClick: () => window.location.href = '/',
+      activeClassName: "bg-destructive text-black",
+    }
+  ];
+
   if (showLobby) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-950 to-slate-950">
-        <div className="w-full max-w-xl space-y-8 bg-slate-900/50 p-8 rounded-3xl border border-slate-800 backdrop-blur-2xl shadow-2xl">
-          <div className="text-center space-y-2">
-            <h1 className="text-4xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent italic">
-              LETS TALK
-            </h1>
-            <p className="text-slate-400 font-medium">Room ID: <span className="text-blue-400 font-mono">{roomId}</span></p>
+      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background relative overflow-hidden">
+        <div className="fixed inset-0 z-0 pointer-events-none opacity-40 dark:opacity-100">
+          <PerspectiveGrid className="w-full h-full" />
+        </div>
+        <div className="w-full max-w-xl space-y-8 bg-card/50 p-8 rounded-3xl border border-border backdrop-blur-2xl shadow-2xl relative z-10">
+          <div className="text-center space-y-2 flex flex-col items-center">
+            <div className="flex items-center gap-3">
+              <Image src="/icons/icon.svg" alt="Logo" width={40} height={40} className="dark:filter dark:invert" />
+              <h1 className="text-4xl font-black text-foreground italic tracking-tighter uppercase whitespace-nowrap">
+                LETS <span className="not-italic">TALK</span>
+              </h1>
+            </div>
+            <p className="text-muted-foreground font-medium">Room ID: <span className="text-primary font-mono">{roomId}</span></p>
           </div>
 
-          <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner group transition-all hover:border-blue-500/50">
+          <div className="relative aspect-video rounded-2xl overflow-hidden bg-muted border border-border group transition-all w-full shadow-inner">
             <video
               ref={localVideoRef}
               autoPlay
@@ -200,31 +254,37 @@ export default function RoomPage() {
               className={`w-full h-full object-cover transform -scale-x-100 ${videoOff ? 'hidden' : ''}`}
             />
             {(!localStream || videoOff) && (
-              <div className="absolute inset-0 flex items-center justify-center bg-slate-950">
-                <div className="w-24 h-24 rounded-full bg-slate-800/50 backdrop-blur-xl border border-slate-700 flex items-center justify-center text-4xl font-bold bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-800 to-slate-950 shadow-2xl overflow-hidden">
-                  <User size={48} className="text-slate-500" />
+              <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                <div className="w-24 h-24 rounded-full bg-card/50 backdrop-blur-xl border border-border flex items-center justify-center text-4xl font-bold bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-card to-muted shadow-2xl overflow-hidden">
+                  <User size={48} className="text-muted-foreground" />
                 </div>
               </div>
             )}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4">
                <button 
                  onClick={toggleAudio} 
-                 className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${audioMuted ? 'bg-red-500 text-white shadow-lg shadow-red-500/30' : 'bg-slate-900/90 text-white hover:bg-slate-800 hover:scale-105'}`}
+                 className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${audioMuted ? 'bg-destructive text-destructive-foreground shadow-lg shadow-destructive/30' : 'bg-background/90 text-foreground hover:bg-muted hover:scale-105'}`}
                >
                  {audioMuted ? <MicOff size={20} /> : <Mic size={20} />}
                </button>
                <button 
                  onClick={toggleVideo} 
-                 className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${videoOff ? 'bg-red-500 text-white shadow-lg shadow-red-500/30' : 'bg-slate-900/90 text-white hover:bg-slate-800 hover:scale-105'}`}
+                 className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${videoOff ? 'bg-destructive text-destructive-foreground shadow-lg shadow-destructive/30' : 'bg-background/90 text-foreground hover:bg-muted hover:scale-105'}`}
                >
                  {videoOff ? <VideoOff size={20} /> : <Video size={20} />}
+               </button>
+               <button 
+                 onClick={() => window.location.href = '/'} 
+                 className="w-12 h-12 rounded-full flex items-center justify-center transition-all bg-destructive text-destructive-foreground shadow-lg shadow-destructive/30 hover:scale-105"
+               >
+                 <PhoneOff size={20} />
                </button>
             </div>
           </div>
 
           <div className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-400 ml-1 flex items-center gap-2">
+              <label className="text-sm font-semibold text-muted-foreground ml-1 flex items-center gap-2">
                 <User size={14} /> What&apos;s your name?
               </label>
               <input
@@ -232,62 +292,69 @@ export default function RoomPage() {
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 placeholder="Enter display name"
-                className="w-full px-6 py-5 bg-slate-950 border border-slate-800 rounded-2xl focus:ring-2 ring-blue-500 transition-all outline-none text-lg font-medium placeholder:text-slate-600"
+                className="w-full px-6 py-5 bg-background border border-border rounded-2xl focus:ring-2 ring-ring transition-all outline-none text-lg font-medium placeholder:text-muted-foreground"
               />
             </div>
 
             {error && (
-              <div className="flex items-center gap-3 text-red-400 text-sm bg-red-500/10 p-4 rounded-xl border border-red-500/20 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-3 text-destructive font-medium text-sm bg-destructive/10 p-4 rounded-xl border border-destructive/20 animate-in fade-in slide-in-from-top-2">
                 <ShieldCheck size={18} className="rotate-180" />
                 <span>{error}</span>
               </div>
             )}
 
-            <button
-              onClick={handleJoin}
-              disabled={!!joiningStatus}
-              className="w-full py-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-white rounded-2xl font-bold text-xl transition-all shadow-xl shadow-blue-500/25 active:scale-[0.98] flex items-center justify-center gap-3"
-            >
-              {joiningStatus ? (
-                <>
+            {joiningStatus ? (
+              <button
+                disabled
+                className="w-full py-5 bg-gradient-to-r from-primary to-primary/80 disabled:from-muted disabled:to-muted disabled:text-muted-foreground text-primary-foreground rounded-2xl font-bold text-xl transition-all shadow-xl shadow-primary/25 active:scale-[0.98] flex items-center justify-center gap-3"
+              >
                   <Loader2 className="w-5 h-5 animate-spin" />
                   <span className="opacity-80 font-medium tracking-wide">{joiningStatus}</span>
-                </>
-              ) : (
-                <>
-                  Join Meeting
-                  <ArrowRight size={20} />
-                </>
-              )}
-            </button>
+              </button>
+            ) : (
+              <LiquidMetalButton
+                onClick={handleJoin}
+                className="w-full"
+                metalConfig={{ colorTint: "#3b82f6" }}
+              >
+                Join Meeting <ArrowRight size={20} className="inline-block ml-2" />
+              </LiquidMetalButton>
+            )}
           </div>
+        </div>
+        <div className="fixed bottom-8 right-8 z-[100]">
+          <ThemeToggleButton />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-6 flex flex-col items-center selection:bg-blue-500/30">
-      <div className="w-full max-w-7xl flex flex-col flex-1 h-full gap-6">
+    <div className="min-h-screen bg-background text-foreground p-6 flex flex-col items-center selection:bg-primary/30 relative overflow-hidden">
+      <div className="fixed inset-0 z-0 pointer-events-none opacity-40 dark:opacity-100">
+        <PerspectiveGrid className="w-full h-full" />
+      </div>
+      <div className="w-full max-w-7xl flex flex-col flex-1 h-full gap-6 relative z-10">
         
         {/* Header */}
-        <div className="flex justify-between items-center py-4 px-8 bg-slate-900/40 backdrop-blur-2xl border border-slate-800/60 rounded-3xl shadow-2xl">
+        <div className="flex justify-between items-center py-4 px-8 bg-card/40 backdrop-blur-2xl border border-border/60 rounded-3xl shadow-2xl">
           <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent italic tracking-tighter">
-              LETS TALK
+            <Image src="/icons/icon.svg" alt="Logo" width={32} height={32} className="dark:filter dark:invert" />
+            <h2 className="text-2xl font-black text-foreground italic tracking-tighter uppercase">
+              LETS <span className="not-italic">TALK</span>
             </h2>
-            <div className="h-6 w-[1px] bg-slate-800 hidden md:block" />
-            <span className="text-slate-400 font-mono text-sm hidden md:block">{roomId}</span>
+            <div className="h-6 w-[1px] bg-border hidden md:block" />
+            <span className="text-muted-foreground font-mono text-sm hidden md:block">{roomId}</span>
           </div>
           
           <div className="flex items-center gap-6">
              {joiningStatus && (
                <div className="flex items-center gap-2">
-                 <Loader2 size={14} className="text-blue-500 animate-spin" />
-                 <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{joiningStatus}</span>
+                 <Loader2 size={14} className="text-primary animate-spin" />
+                 <span className="text-[10px] font-bold text-primary uppercase tracking-widest">{joiningStatus}</span>
                </div>
              )}
-             <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 text-xs font-bold uppercase tracking-tight">
+             <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-500 text-xs font-bold uppercase tracking-tight">
                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                 <span className="opacity-80">{isJoined ? 'Live' : 'Connecting'}</span>
              </div>
@@ -298,7 +365,8 @@ export default function RoomPage() {
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr min-h-0">
           
           {/* Local Video */}
-          <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 border border-slate-800/80 shadow-[0_20px_50px_rgba(0,0,0,0.5)] group h-full">
+          {/* Local Video */}
+          <div className="relative overflow-hidden rounded-[2.5rem] bg-card h-full w-full aspect-video border border-border shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
             <video
               ref={localVideoRef}
               autoPlay
@@ -307,24 +375,39 @@ export default function RoomPage() {
               className={`w-full h-full object-cover transform ${!videoOff ? '-scale-x-100' : 'hidden'}`}
             />
             {videoOff && (
-              <div className="absolute inset-0 flex items-center justify-center bg-slate-950">
-                <div className="w-32 h-32 rounded-full bg-slate-900 border-2 border-slate-800 flex items-center justify-center text-5xl font-bold bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-800 to-slate-950 text-slate-300 shadow-2xl">
-                   <User size={64} className="text-slate-600" />
+              <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                <div className="w-32 h-32 rounded-full bg-card border-2 border-border flex items-center justify-center text-5xl font-bold bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-card to-muted text-muted-foreground shadow-2xl">
+                   <User size={64} className="text-muted-foreground/50" />
                 </div>
               </div>
             )}
-            <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-white/5 tracking-wide">
-              <div className="w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pulse" />
+            <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-background/80 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-border tracking-wide text-foreground z-10">
+              <div className="w-2 h-2 bg-primary rounded-full shadow-[0_0_8px_var(--primary)] animate-pulse" />
               {userName} (You)
+            </div>
+            
+            <div className="absolute bottom-6 right-6 flex items-center gap-2 z-10">
+               <button 
+                 onClick={toggleAudio} 
+                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${audioMuted ? 'bg-destructive text-destructive-foreground' : 'bg-background/80 text-foreground hover:bg-muted'}`}
+               >
+                 {audioMuted ? <MicOff size={16} /> : <Mic size={16} />}
+               </button>
+               <button 
+                 onClick={toggleVideo} 
+                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${videoOff ? 'bg-destructive text-destructive-foreground' : 'bg-background/80 text-foreground hover:bg-muted'}`}
+               >
+                 {videoOff ? <VideoOff size={16} /> : <Video size={16} />}
+               </button>
             </div>
           </div>
 
           {/* Remote Videos */}
           {Array.from(remoteStreams.entries()).map(([id, { stream, userName: remoteName }]) => (
-             <div key={id} className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 border border-slate-800/80 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-700 h-full">
+             <div key={id} className="relative overflow-hidden rounded-[2.5rem] bg-card h-full w-full aspect-video border border-border animate-in fade-in zoom-in-95 duration-700 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
                 <RemoteVideo stream={stream} />
-                <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-white/5 tracking-wide text-blue-400">
-                  <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+                <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-background/80 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-border tracking-wide text-primary z-10">
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_8_rgba(99,102,241,0.5)]" />
                   {remoteName}
                 </div>
              </div>
@@ -333,46 +416,55 @@ export default function RoomPage() {
 
         {/* Control Bar */}
         <div className="h-28 sticky bottom-4 w-full flex items-center justify-center mt-auto">
-          <div className="flex items-center gap-8 bg-slate-900/60 backdrop-blur-[40px] border border-white/10 px-10 py-5 rounded-[3rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.6)]">
-            <button
-              onClick={toggleAudio}
-              className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 ${audioMuted ? 'bg-red-500 text-white shadow-lg shadow-red-500/40' : 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:scale-110'}`}
-            >
-              {audioMuted ? <MicOff size={24} /> : <Mic size={24} />}
-            </button>
-            <button
-              onClick={toggleVideo}
-              className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 ${videoOff ? 'bg-red-500 text-white shadow-lg shadow-red-500/40' : 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:scale-110'}`}
-            >
-              {videoOff ? <VideoOff size={24} /> : <Video size={24} />}
-            </button>
-            <div className="h-8 w-[1px] bg-slate-700/50 mx-2" />
-            <button
-              onClick={() => window.location.href = '/'}
-              className="px-10 py-5 bg-red-600 hover:bg-red-500 text-white rounded-3xl font-bold transition-all shadow-xl shadow-red-500/30 hover:scale-[1.02] active:scale-95 text-lg flex items-center gap-3"
-            >
-              <PhoneOff size={22} />
-              Leave
-            </button>
-          </div>
+          <GlassDock items={dockItems} dockClassName="px-6 py-4 rounded-3xl" />
         </div>
       </div>
-    </div>
+        <div className="fixed bottom-8 right-8 z-[100]">
+          <ThemeToggleButton />
+        </div>
+      </div>
   );
 }
 
 function RemoteVideo({ stream }: { stream: MediaStream }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const [hasVideo, setHasVideo] = useState(true);
+
   useEffect(() => {
-    if (ref.current) ref.current.srcObject = stream;
+    if (ref.current) {
+        ref.current.srcObject = stream;
+        
+        const checkTracks = () => {
+            const videoTrack = stream.getVideoTracks()[0];
+            setHasVideo(!!videoTrack && videoTrack.enabled);
+        };
+        
+        checkTracks();
+        stream.addEventListener('addtrack', checkTracks);
+        stream.addEventListener('removetrack', checkTracks);
+        
+        return () => {
+            stream.removeEventListener('addtrack', checkTracks);
+            stream.removeEventListener('removetrack', checkTracks);
+        };
+    }
   }, [stream]);
 
   return (
-    <video
-      ref={ref}
-      autoPlay
-      playsInline
-      className="w-full h-full object-cover"
-    />
+    <>
+      <video
+        ref={ref}
+        autoPlay
+        playsInline
+        className={cn("w-full h-full object-cover", !hasVideo && "hidden")}
+      />
+      {!hasVideo && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted">
+            <div className="w-24 h-24 rounded-full bg-card border-2 border-border flex items-center justify-center text-4xl font-bold bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-card to-muted text-muted-foreground shadow-2xl">
+               <User size={48} className="text-muted-foreground/30" />
+            </div>
+        </div>
+      )}
+    </>
   );
 }
