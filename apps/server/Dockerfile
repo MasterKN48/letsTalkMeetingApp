@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y python3 make gcc g++ \
 # Install dependencies (Monorepo root)
 COPY package.json bun.lock ./
 COPY apps/server/package.json ./apps/server/
+COPY apps/web/package.json ./apps/web/
 RUN bun install --frozen-lockfile
 
 # Copy server source
@@ -17,6 +18,11 @@ WORKDIR /app/apps/server
 
 # Build the server code into a single executable bundle
 RUN bun build ./index.ts --target bun --outfile ./dist/index.js
+
+# Robustly find and stage the mediasoup worker binary
+# In Bun monorepos, it could be in root node_modules or workspace node_modules
+RUN mkdir -p /app/staging && \
+    cp $(find /app -name mediasoup-worker | grep Release | head -n 1) /app/staging/mediasoup-worker
 
 # Stage 2: Final runtime image (Distroless for minimal size/security)
 FROM oven/bun:distroless AS runtime
@@ -29,9 +35,8 @@ ENV NODE_ENV=production
 COPY --from=base /app/apps/server/dist/index.js ./
 
 # Mediasoup requires its external worker binary to be present at a specific relative path
-# We must copy the compiled worker binary from the base stage node_modules
-# It's usually found in: node_modules/mediasoup/worker/out/Release/mediasoup-worker
-COPY --from=base /app/node_modules/mediasoup/worker/out/Release/mediasoup-worker ./node_modules/mediasoup/worker/out/Release/mediasoup-worker
+# We copy it to a path where the mediasoup library expects it
+COPY --from=base /app/staging/mediasoup-worker ./node_modules/mediasoup/worker/out/Release/mediasoup-worker
 
 # Expose the API and WebRTC ports
 EXPOSE 3001
