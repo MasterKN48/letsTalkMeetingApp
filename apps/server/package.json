@@ -1,0 +1,23 @@
+{
+  "name": "server",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch index.ts",
+    "build": "bun build ./index.ts --outdir ./dist --target bun",
+    "start": "bun dist/index.js"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "hono": "^4.12.8",
+    "jsonwebtoken": "^9.0.3",
+    "mediasoup": "^3.19.18",
+    "zod": "^4.3.6"
+  }
+}
