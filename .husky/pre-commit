@@ -1,1 +1,3 @@
-bun build --filter "*"
+#!/usr/bin/env sh
+set -e
+bun run build
