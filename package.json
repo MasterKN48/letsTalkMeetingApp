@@ -5,12 +5,13 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "bun --filter \"*\" dev",
+    "dev": "concurrently -n \"WEB,SERVER\" -c \"cyan,magenta\" \"bun run --cwd apps/web dev\" \"bun run --cwd apps/server dev\"",
     "build": "bun --filter \"*\" build",
     "start": "bun --filter \"*\" start",
     "prepare": "husky"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "husky": "^9.1.7",
     "typescript": "^5.0.0"
   },

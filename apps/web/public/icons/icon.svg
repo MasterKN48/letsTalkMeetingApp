@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background gradient: deep navy to indigo -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#1a1033"/>
+    </linearGradient>
+    <!-- Icon gradient: electric blue → violet -->
+    <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <!-- Glow filter -->
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Soft inner shadow for depth -->
+    <filter id="innerShadow">
+      <feOffset dx="0" dy="4"/>
+      <feGaussianBlur stdDeviation="12" result="offsetBlur"/>
+      <feComposite in="SourceGraphic" in2="offsetBlur" operator="over"/>
+    </filter>
+    <!-- Clip to rounded square -->
+    <clipPath id="roundedClip">
+      <rect x="0" y="0" width="512" height="512" rx="112" ry="112"/>
+    </clipPath>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect x="0" y="0" width="512" height="512" rx="112" ry="112" fill="url(#bgGrad)"/>
+
+  <!-- Subtle radial glow in center -->
+  <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#6366f1" stop-opacity="0.2"/>
+    <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+  </radialGradient>
+  <rect x="0" y="0" width="512" height="512" rx="112" ry="112" fill="url(#centerGlow)"/>
+
+  <!-- Main speech/talk bubble: large rounded polygon -->
+  <g filter="url(#glow)" clip-path="url(#roundedClip)">
+    <!-- Primary speech bubble body -->
+    <path
+      d="M 100 160
+         Q 100 100 160 100
+         L 352 100
+         Q 412 100 412 160
+         L 412 290
+         Q 412 350 352 350
+         L 220 350
+         L 160 420
+         L 170 350
+         L 160 350
+         Q 100 350 100 290
+         Z"
+      fill="url(#iconGrad)"
+      opacity="0.95"
+    />
+
+    <!-- Sound wave dots inside bubble -->
+    <!-- Left dot -->
+    <circle cx="176" cy="225" r="22" fill="white" opacity="0.9"/>
+    <!-- Center dot (larger) -->
+    <circle cx="256" cy="225" r="28" fill="white" opacity="0.95"/>
+    <!-- Right dot -->
+    <circle cx="336" cy="225" r="22" fill="white" opacity="0.9"/>
+
+    <!-- Subtle arc above dots (signal/wave indicator) -->
+    <path
+      d="M 148 185 Q 256 155 364 185"
+      stroke="white"
+      stroke-width="8"
+      stroke-linecap="round"
+      fill="none"
+      opacity="0.35"
+    />
+  </g>
+
+  <!-- Top-right subtle highlight ring -->
+  <circle cx="390" cy="122" r="48" fill="none" stroke="url(#iconGrad)" stroke-width="2" opacity="0.3"/>
+</svg>

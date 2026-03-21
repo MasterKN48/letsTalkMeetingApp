@@ -1,0 +1,45 @@
+services:
+  # Signaling Server (Backend) in Dev Mode
+  server:
+    image: oven/bun:latest
+    container_name: lets-talk-server-dev
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules # Prevents host node_modules (Mac binary) from polluting container
+    ports:
+      - "3001:3001"
+      - "10000-10100:10000-10100/udp"
+    environment:
+      - NODE_ENV=development
+      - SERVER_PORT=3001
+      - JWT_SECRET=dev-secret-key
+      - MEDIASOUP_MIN_PORT=10000
+      - MEDIASOUP_MAX_PORT=10100
+      - ANNOUNCED_IP=127.0.0.1
+    # Install dependencies on startup to ensure Linux binaries for Mediasoup
+    command: >
+      bash -c "apt-get update && apt-get install -y python3 make gcc g++ 
+      && bun install 
+      && cd apps/server && bun run dev"
+
+  # Next.js Application (Frontend) in Dev Mode
+  web:
+    image: oven/bun:latest
+    container_name: lets-talk-web-dev
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules # Prevents host node_modules from polluting container
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_SERVER_URL=http://localhost:3001
+      - CHOKIDAR_USEPOLLING=true # Helps with some Docker volume sync issues
+      - WATCHPACK_POLLING=true   # Specifically for Next.js hot-reload in containers
+    command: >
+      bash -c "bun install
+      && cd apps/web && bun run dev"
+    depends_on:
+      - server
