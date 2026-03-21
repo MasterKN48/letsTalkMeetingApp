@@ -8,8 +8,8 @@
     "start": "bun --bun next start",
     "lint": "eslint"
   },
-
   "dependencies": {
+    "lucide-react": "^0.577.0",
     "mediasoup-client": "^3.18.7",
     "next": "16.2.1",
     "react": "19.2.4",
@@ -21,7 +21,6 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4",
     "typescript": "^5"

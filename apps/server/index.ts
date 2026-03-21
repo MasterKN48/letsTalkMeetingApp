@@ -179,9 +179,9 @@ const server = Bun.serve<SocketData>({
                         let router = rooms.get(currentRoomId);
                         if (!router) { router = await worker.createRouter({ mediaCodecs }); rooms.set(currentRoomId, router); }
                         
-                        // Get current producers in the room
+                        // Get current producers in the room (excluding self)
                         const existingProducers = Array.from(producers.values())
-                            .filter(p => p.roomId === currentRoomId)
+                            .filter(p => p.roomId === currentRoomId && p.userId !== ws.data.userId)
                             .map(p => ({ producerId: p.producer.id, kind: p.producer.kind, userName: p.userName, userId: p.userId }));
 
                         reply({ rtpCapabilities: router.rtpCapabilities, existingProducers });
@@ -255,7 +255,26 @@ const server = Bun.serve<SocketData>({
             }
         },
         close(ws) {
-            console.log('WebSocket closed:', ws.data.id);
+            console.log('User disconnected:', ws.data.userId);
+            
+            // Clean up producers
+            for (const [id, p] of producers.entries()) {
+                if (p.userId === ws.data.userId && p.roomId === ws.data.roomId) {
+                    p.producer.close();
+                    producers.delete(id);
+                    // Notify others
+                    ws.publish(`room:${ws.data.roomId}`, JSON.stringify({ 
+                        type: 'producer-closed', 
+                        data: { producerId: id, userId: ws.data.userId } 
+                    }));
+                }
+            }
+
+            // Cleanup transports
+            // Note: In a production app, you'd want to track which transport belongs to which socket
+            // For now, we'll rely on the transport 'closed' event or heartbeat if implemented.
+            // But we can at least remove producers which is what the user sees.
+
             socketToRoom.delete(ws.data.id);
         },
     },

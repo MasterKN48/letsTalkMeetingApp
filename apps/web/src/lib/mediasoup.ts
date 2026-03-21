@@ -9,19 +9,35 @@ export class MediasoupClient {
   private producers: Map<string, types.Producer> = new Map();
   private consumers: Map<string, types.Consumer> = new Map();
   private roomId: string;
+  private userId: string | null = null;
   private onNewRemoteProducer: (producerId: string, kind: string, userName: string, userId: string) => void;
+  private onRemoteProducerClosed: (producerId: string, userId: string) => void;
   private pendingRequests = new Map<string, (data: any) => void>();
 
   constructor(
     roomId: string,
     onNewRemoteProducer: (producerId: string, kind: string, userName: string, userId: string) => void,
+    onRemoteProducerClosed: (producerId: string, userId: string) => void,
   ) {
     this.roomId = roomId;
     this.onNewRemoteProducer = onNewRemoteProducer;
+    this.onRemoteProducerClosed = onRemoteProducerClosed;
     this.device = new Device();
   }
 
+  getUserId() {
+    return this.userId;
+  }
+
   async connect(token: string) {
+    // Basic JWT decode for userId
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        this.userId = payload.userId;
+    } catch (e) {
+        console.error('Failed to decode token', e);
+    }
+
     const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3001";
     const wsUrl = `${baseUrl.replace('http', 'ws')}?token=${token}`;
     this.ws = new WebSocket(wsUrl);
@@ -46,6 +62,8 @@ export class MediasoupClient {
                 this.pendingRequests.delete(requestId);
             } else if (type === 'new-producer') {
                 this.onNewRemoteProducer(data.producerId, data.kind, data.userName, data.userId);
+            } else if (type === 'producer-closed') {
+                this.onRemoteProducerClosed(data.producerId, data.userId);
             }
         };
     });
@@ -53,9 +71,23 @@ export class MediasoupClient {
 
   private request(type: string, data: any = {}): Promise<any> {
     const requestId = Math.random().toString(36).substring(2, 11);
-    return new Promise((resolve) => {
-        this.pendingRequests.set(requestId, resolve);
-        this.ws?.send(JSON.stringify({ type, data, requestId }));
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            this.pendingRequests.delete(requestId);
+            reject(new Error(`Request ${type} timed out`));
+        }, 10000); // 10s timeout
+
+        this.pendingRequests.set(requestId, (response) => {
+            clearTimeout(timeout);
+            resolve(response);
+        });
+        
+        if (this.ws?.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ type, data, requestId }));
+        } else {
+            clearTimeout(timeout);
+            reject(new Error("WebSocket not connected"));
+        }
     });
   }
 
