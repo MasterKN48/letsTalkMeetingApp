@@ -24,6 +24,7 @@ const loginRoute = createRoute({
                 'application/json': {
                     schema: z.object({
                         userId: z.string().openapi({ example: 'user-123' }),
+                        userName: z.string().openapi({ example: 'John Doe' }),
                         roomId: z.string().openapi({ example: 'room-abc' }),
                     }),
                 },
@@ -46,8 +47,8 @@ const loginRoute = createRoute({
 });
 
 app.openapi(loginRoute as any, async (c: any) => {
-    const { userId, roomId } = c.req.valid('json');
-    const token = sign({ userId, roomId }, JWT_SECRET, { expiresIn: '1h' });
+    const { userId, userName, roomId } = c.req.valid('json');
+    const token = sign({ userId, userName, roomId }, JWT_SECRET, { expiresIn: '1h' });
     return c.json({ token }, 200);
 });
 
@@ -78,12 +79,12 @@ const MessageSchema = z.discriminatedUnion('type', [
 // Mediasoup state
 let worker: mediasoup.types.Worker;
 const rooms = new Map<string, mediasoup.types.Router>();
-const producers = new Map<string, mediasoup.types.Producer>();
+const producers = new Map<string, { producer: mediasoup.types.Producer, userName: string, roomId: string }>();
 const consumers = new Map<string, mediasoup.types.Consumer>();
 const transports = new Map<string, mediasoup.types.WebRtcTransport>();
 
 // WebSocket connection state
-interface SocketData { id: string, userId: string, roomId: string }
+interface SocketData { id: string, userId: string, userName: string, roomId: string }
 const socketToRoom = new Map<string, string>(); // websocket.id -> roomId
 
 (async () => {
@@ -103,7 +104,7 @@ const server = Bun.serve<SocketData>({
 
         if (token) {
             try {
-                const decoded = verify(token, JWT_SECRET) as { userId: string, roomId: string };
+                const decoded = verify(token, JWT_SECRET) as { userId: string, userName: string, roomId: string };
                 if (server.upgrade(req, { data: { id: crypto.randomUUID(), ...decoded } })) {
                     return;
                 }
@@ -134,13 +135,19 @@ const server = Bun.serve<SocketData>({
                         if (data.roomId !== currentRoomId) return reply({ error: 'Unauthorized room access' });
                         let router = rooms.get(currentRoomId);
                         if (!router) { router = await worker.createRouter({ mediaCodecs }); rooms.set(currentRoomId, router); }
-                        reply({ rtpCapabilities: router.rtpCapabilities });
+                        
+                        // Get current producers in the room
+                        const existingProducers = Array.from(producers.values())
+                            .filter(p => p.roomId === currentRoomId)
+                            .map(p => ({ producerId: p.producer.id, kind: p.producer.kind, userName: p.userName }));
+
+                        reply({ rtpCapabilities: router.rtpCapabilities, existingProducers });
                         break;
                     }
 
                     case 'create-transport': {
                         const router = rooms.get(currentRoomId);
-                        if (!router) return;
+                        if (!router) return reply({ error: 'Room not found' });
                         const transport = await router.createWebRtcTransport({
                             listenIps: [{ ip: '0.0.0.0', announcedIp: process.env.ANNOUNCED_IP || '127.0.0.1' }],
                             enableUdp: true, enableTcp: true, preferUdp: true,
@@ -153,7 +160,12 @@ const server = Bun.serve<SocketData>({
 
                     case 'connect-transport': {
                         const transport = transports.get(data.transportId);
-                        if (transport) await transport.connect({ dtlsParameters: data.dtlsParameters });
+                        if (transport) {
+                            await transport.connect({ dtlsParameters: data.dtlsParameters });
+                            reply({ success: true });
+                        } else {
+                            reply({ error: 'Transport not found' });
+                        }
                         break;
                     }
 
@@ -161,9 +173,11 @@ const server = Bun.serve<SocketData>({
                         const transport = transports.get(data.transportId);
                         if (transport) {
                             const producer = await transport.produce({ kind: data.kind, rtpParameters: data.rtpParameters });
-                            producers.set(producer.id, producer);
+                            producers.set(producer.id, { producer, userName: ws.data.userName, roomId: currentRoomId });
                             reply({ id: producer.id });
-                            ws.publish(`room:${currentRoomId}`, JSON.stringify({ type: 'new-producer', data: { producerId: producer.id, kind: data.kind } }));
+                            ws.publish(`room:${currentRoomId}`, JSON.stringify({ type: 'new-producer', data: { producerId: producer.id, kind: data.kind, userName: ws.data.userName } }));
+                        } else {
+                            reply({ error: 'Transport not found' });
                         }
                         break;
                     }
@@ -171,18 +185,25 @@ const server = Bun.serve<SocketData>({
                     case 'consume': {
                         const transport = transports.get(data.transportId);
                         const router = rooms.get(currentRoomId);
-                        if (!transport || !router) return;
+                        if (!transport || !router) return reply({ error: 'Transport or Router not found' });
                         if (router.canConsume({ producerId: data.producerId, rtpCapabilities: data.rtpCapabilities })) {
                             const consumer = await transport.consume({ producerId: data.producerId, rtpCapabilities: data.rtpCapabilities, paused: true });
                             consumers.set(consumer.id, consumer);
                             reply({ params: { id: consumer.id, producerId: data.producerId, kind: consumer.kind, rtpParameters: consumer.rtpParameters } });
+                        } else {
+                            reply({ error: 'Cannot consume' });
                         }
                         break;
                     }
 
                     case 'resume-consumer': {
                         const consumer = consumers.get(data.consumerId);
-                        if (consumer) await consumer.resume();
+                        if (consumer) {
+                            await consumer.resume();
+                            reply({ success: true });
+                        } else {
+                            reply({ error: 'Consumer not found' });
+                        }
                         break;
                     }
                 }

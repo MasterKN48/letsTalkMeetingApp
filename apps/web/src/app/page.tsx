@@ -5,17 +5,21 @@ import { useRouter } from 'next/navigation';
 
 export default function LandingPage() {
   const [roomId, setRoomId] = useState('');
+  const [userName, setUserName] = useState('');
   const router = useRouter();
 
   const createRoom = () => {
+    if (!userName.trim()) return alert('Please enter your name');
     const newRoomId = Math.random().toString(36).substring(2, 9);
-    router.push(`/room/${newRoomId}`);
+    router.push(`/room/${newRoomId}?name=${encodeURIComponent(userName.trim())}`);
   };
 
   const joinRoom = (e: React.FormEvent) => {
     e.preventDefault();
-    if (roomId.trim()) {
-      router.push(`/room/${roomId.trim()}`);
+    if (roomId.trim() && userName.trim()) {
+      router.push(`/room/${roomId.trim()}?name=${encodeURIComponent(userName.trim())}`);
+    } else if (!userName.trim()) {
+      alert('Please enter your name');
     }
   };
 
@@ -34,16 +38,28 @@ export default function LandingPage() {
         </p>
 
         <div className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider ml-1">Your Display Name</label>
+            <input
+              type="text"
+              placeholder="e.g. John Doe"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+            />
+          </div>
+
           <button
             onClick={createRoom}
-            className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-blue-500/20"
+            disabled={!userName.trim()}
+            className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:grayscale"
           >
             Create New Meeting
           </button>
 
           <div className="relative flex items-center gap-4">
             <div className="h-[1px] flex-1 bg-slate-800" />
-            <span className="text-slate-500 text-sm">OR</span>
+            <span className="text-slate-500 text-sm">OR JOIN EXISTING</span>
             <div className="h-[1px] flex-1 bg-slate-800" />
           </div>
 
@@ -59,7 +75,7 @@ export default function LandingPage() {
             </div>
             <button
               type="submit"
-              disabled={!roomId.trim()}
+              disabled={!roomId.trim() || !userName.trim()}
               className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Join Room

@@ -9,12 +9,12 @@ export class MediasoupClient {
   private producers: Map<string, types.Producer> = new Map();
   private consumers: Map<string, types.Consumer> = new Map();
   private roomId: string;
-  private onNewRemoteProducer: (producerId: string, kind: string) => void;
+  private onNewRemoteProducer: (producerId: string, kind: string, userName: string) => void;
   private pendingRequests = new Map<string, (data: any) => void>();
 
   constructor(
     roomId: string,
-    onNewRemoteProducer: (producerId: string, kind: string) => void,
+    onNewRemoteProducer: (producerId: string, kind: string, userName: string) => void,
   ) {
     this.roomId = roomId;
     this.onNewRemoteProducer = onNewRemoteProducer;
@@ -45,7 +45,7 @@ export class MediasoupClient {
                 this.pendingRequests.get(requestId)!(data);
                 this.pendingRequests.delete(requestId);
             } else if (type === 'new-producer') {
-                this.onNewRemoteProducer(data.producerId, data.kind);
+                this.onNewRemoteProducer(data.producerId, data.kind, data.userName);
             }
         };
     });
@@ -64,8 +64,9 @@ export class MediasoupClient {
   }
 
   async joinRoom() {
-    const { rtpCapabilities } = await this.request("join-room", { roomId: this.roomId });
+    const { rtpCapabilities, existingProducers } = await this.request("join-room", { roomId: this.roomId });
     await this.device!.load({ routerRtpCapabilities: rtpCapabilities });
+    return existingProducers;
   }
 
   async initTransports() {
