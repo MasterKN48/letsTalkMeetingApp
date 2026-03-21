@@ -14,6 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   title: "Let'sTalk — AI-Powered SFU Meetings",
   description: "Next-generation video meetings with real-time AI translation and voice cloning. Ultra-low latency, end-to-end encrypted.",
   manifest: "/manifest.json",

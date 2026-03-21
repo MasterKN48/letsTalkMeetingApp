@@ -115,13 +115,13 @@ export const LiquidMetalButton = forwardRef<
                 ref={ref}
                 disabled={disabled}
                 className={cn(
-                    "relative group cursor-pointer border-none bg-transparent p-0 outline-none transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
+                    "relative group cursor-pointer rounded-full border-none bg-transparent p-0 outline-none transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
                     className
                 )}
                 {...props}
             >
                 <div
-                    className="relative rounded-full overflow-hidden shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)]"
+                    className="relative rounded-full overflow-hidden shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)] [transform:translateZ(0)]"
                     style={{ padding: borderWidth }}
                 >
                     {/* Liquid Metal Border Layer */}

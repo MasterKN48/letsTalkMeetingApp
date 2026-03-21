@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { SpotlightNavbar } from '@/components/ui/spotlight-navbar';
 import { PerspectiveGrid } from '@/components/ui/perspective-grid';
 import { LiquidMetalButton } from '@/components/ui/liquid-metal';
@@ -66,13 +67,15 @@ export default function LandingClient({ initialUserName = '' }: LandingClientPro
           >
             <div className="space-y-6">
               <div className="flex items-center gap-4">
-                 <div className="relative group">
-                    <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-primary/50 to-purple-500/50 blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200" />
-                     <img 
-                       src="/icons/icon.svg" 
-                       alt="Let'sTalk Logo" 
-                       className="relative w-20 h-20 rounded-2xl shadow-2xl border border-white/10" 
-                     />
+                 <div className="flex items-center gap-3 w-fit hover:opacity-80 transition-opacity">
+                    <Image 
+                      src="/icons/icon.svg" 
+                      alt="Let'sTalk Logo"
+                      width={40}
+                      height={40}
+                      className="drop-shadow-[0_2px_10px_rgba(0,255,255,0.2)] dark:filter dark:invert"
+                      priority
+                    />
                  </div>
                  <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-black uppercase tracking-widest text-primary">
                    AI POWERED VIDEO
@@ -90,8 +93,7 @@ export default function LandingClient({ initialUserName = '' }: LandingClientPro
             <div className="flex flex-wrap gap-4">
                <LiquidMetalButton
                  icon={<Github size={18} />}
-                 onClick={() => window.open('https://github.com', '_blank')}
-                 className="shadow-md"
+                 onClick={() => window.open('https://github.com/MasterKN48/letsTalk', '_blank')}
                  metalConfig={{
                    colorBack: "#444444",
                    colorTint: "#ffffff",

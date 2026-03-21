@@ -4,6 +4,14 @@
   "workspaces": [
     "apps/*"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MasterKN48/letsTalk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MasterKN48/letsTalk/issues"
+  },
+  "homepage": "https://github.com/MasterKN48/letsTalk",
   "scripts": {
     "dev": "concurrently -n \"WEB,SERVER\" -c \"cyan,magenta\" \"bun run --cwd apps/web dev\" \"bun run --cwd apps/server dev\"",
     "build": "bun --filter \"*\" build",
