@@ -16,40 +16,49 @@ export default function RoomPage() {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const clientRef = useRef<MediasoupClient | null>(null);
 
+  const hasInit = useRef(false);
+
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || hasInit.current) return;
+    hasInit.current = true;
 
     const init = async () => {
-
       // 1. Get User Media
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       setLocalStream(stream);
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
       // 2. Auth & Init Mediasoup Client
-      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
-      const authRes = await fetch(`${serverUrl}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: `user-${Math.floor(Math.random() * 1000)}`, roomId })
-      });
-      const { token } = await authRes.json();
+      try {
+        const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
+        const authRes = await fetch(`${serverUrl}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: `user-${Math.floor(Math.random() * 1000)}`, roomId })
+        });
+        
+        if (!authRes.ok) throw new Error('Auth failed');
+        const { token } = await authRes.json();
 
-      const client = new MediasoupClient(roomId, (producerId, kind) => {
-        handleNewProducer(producerId, kind);
-      });
-      clientRef.current = client;
+        const client = new MediasoupClient(roomId, (producerId, kind) => {
+          handleNewProducer(producerId, kind);
+        });
+        clientRef.current = client;
 
-      await client.connect(token);
-      await client.joinRoom();
-      await client.initTransports();
+        await client.connect(token);
+        await client.joinRoom();
+        await client.initTransports();
 
-      // 3. Produce Local Tracks
-      for (const track of stream.getTracks()) {
-        await client.produce(track);
+        // 3. Produce Local Tracks
+        for (const track of stream.getTracks()) {
+          await client.produce(track);
+        }
+
+        setIsJoined(true);
+      } catch (err) {
+        console.error('Initialization failed:', err);
+        hasInit.current = false; // Allow retry on failure if needed
       }
-
-      setIsJoined(true);
     };
 
     const handleNewProducer = async (producerId: string, kind: string) => {
@@ -72,9 +81,12 @@ export default function RoomPage() {
       // Cleanup
       localStream?.getTracks().forEach(t => t.stop());
       clientRef.current?.getSocket()?.close();
+      clientRef.current = null;
+      hasInit.current = false;
     };
 
-  }, [roomId, localStream]);
+  }, [roomId]);
+
 
 
   const toggleAudio = () => {

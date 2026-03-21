@@ -1,24 +1,71 @@
-import { Hono } from 'hono';
+import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
+import { swaggerUI } from '@hono/swagger-ui';
 import { cors } from 'hono/cors';
 import { verify, sign } from 'jsonwebtoken';
-import { z } from 'zod';
 import * as mediasoup from 'mediasoup';
+
 import { mediaCodecs } from './mediasoup.config';
 
 const port = Number(process.env.SERVER_PORT) || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
-const app = new Hono();
+// Initialize OpenAPI-compatible Hono
+const app = new OpenAPIHono<any>();
 app.use('*', cors());
 
-// Authentication endpoint (simulated)
-app.post('/auth/login', async (c) => {
-    const { userId, roomId } = await c.req.json();
-    const token = sign({ userId, roomId }, JWT_SECRET, { expiresIn: '1h' });
-    return c.json({ token });
+// Define the Login Route for OpenAPI
+const loginRoute = createRoute({
+    method: 'post',
+    path: '/auth/login',
+    summary: 'Generate a JWT token for a meeting room',
+    request: {
+        body: {
+            content: {
+                'application/json': {
+                    schema: z.object({
+                        userId: z.string().openapi({ example: 'user-123' }),
+                        roomId: z.string().openapi({ example: 'room-abc' }),
+                    }),
+                },
+            },
+            required: true,
+        },
+    },
+    responses: {
+        '200': {
+            content: {
+                'application/json': {
+                    schema: z.object({
+                        token: z.string().openapi({ example: 'eyJhbGci...' }),
+                    }),
+                },
+            },
+            description: 'Returns a JWT token valid for 1 hour',
+        },
+    },
 });
 
-// Zod Schemas for WebSocket messages
+app.openapi(loginRoute as any, async (c: any) => {
+    const { userId, roomId } = c.req.valid('json');
+    const token = sign({ userId, roomId }, JWT_SECRET, { expiresIn: '1h' });
+    return c.json({ token }, 200);
+});
+
+
+
+// Swagger UI configuration
+app.doc('/doc', {
+    openapi: '3.0.0',
+    info: {
+        version: '1.0.0',
+        title: 'Mediasoup Signaling API',
+        description: 'Secure signaling for WebRTC meetings',
+    },
+});
+
+app.get('/docs', swaggerUI({ url: '/doc' }));
+
+// Zod Schemas for WebSocket messages (staying the same for now)
 const MessageSchema = z.discriminatedUnion('type', [
     z.object({ type: z.literal('join-room'), data: z.object({ roomId: z.string().min(1) }), requestId: z.string() }),
     z.object({ type: z.literal('create-transport'), data: z.object({ roomId: z.string() }).optional(), requestId: z.string() }),
@@ -64,7 +111,6 @@ const server = Bun.serve<SocketData>({
                 return new Response('Unauthorized - Invalid Token', { status: 401 });
             }
         } else if (url.pathname === '/') {
-            // Root path without token is rejected for WS
             return new Response('WebSocket connection requires token in query string', { status: 403 });
         }
 
@@ -80,22 +126,14 @@ const server = Bun.serve<SocketData>({
             try {
                 const parsed = MessageSchema.parse(JSON.parse(message as string));
                 const { type, data, requestId } = parsed;
-
-                const reply = (resData: any) => {
-                    if (requestId) ws.send(JSON.stringify({ type: 'response', requestId, data: resData }));
-                };
-
-                // Authorization check: User should only interact with their own room (from JWT)
+                const reply = (resData: any) => { if (requestId) ws.send(JSON.stringify({ type: 'response', requestId, data: resData })); };
                 const currentRoomId = ws.data.roomId;
 
                 switch (type) {
                     case 'join-room': {
                         if (data.roomId !== currentRoomId) return reply({ error: 'Unauthorized room access' });
                         let router = rooms.get(currentRoomId);
-                        if (!router) {
-                            router = await worker.createRouter({ mediaCodecs });
-                            rooms.set(currentRoomId, router);
-                        }
+                        if (!router) { router = await worker.createRouter({ mediaCodecs }); rooms.set(currentRoomId, router); }
                         reply({ rtpCapabilities: router.rtpCapabilities });
                         break;
                     }
@@ -103,30 +141,18 @@ const server = Bun.serve<SocketData>({
                     case 'create-transport': {
                         const router = rooms.get(currentRoomId);
                         if (!router) return;
-
                         const transport = await router.createWebRtcTransport({
                             listenIps: [{ ip: '0.0.0.0', announcedIp: process.env.ANNOUNCED_IP || '127.0.0.1' }],
-                            enableUdp: true,
-                            enableTcp: true,
-                            preferUdp: true,
+                            enableUdp: true, enableTcp: true, preferUdp: true,
                         });
-
                         transports.set(transport.id, transport);
-                        reply({
-                            params: {
-                                id: transport.id,
-                                iceParameters: transport.iceParameters,
-                                iceCandidates: transport.iceCandidates,
-                                dtlsParameters: transport.dtlsParameters,
-                            },
-                        });
+                        reply({ params: { id: transport.id, iceParameters: transport.iceParameters, iceCandidates: transport.iceCandidates, dtlsParameters: transport.dtlsParameters } });
                         transport.on('dtlsstatechange', (state) => { if (state === 'closed') transport.close(); });
                         break;
                     }
 
                     case 'connect-transport': {
                         const transport = transports.get(data.transportId);
-                        // Check if transport belongs to this router/room (omitted for brevity but recommended)
                         if (transport) await transport.connect({ dtlsParameters: data.dtlsParameters });
                         break;
                     }
@@ -137,10 +163,7 @@ const server = Bun.serve<SocketData>({
                             const producer = await transport.produce({ kind: data.kind, rtpParameters: data.rtpParameters });
                             producers.set(producer.id, producer);
                             reply({ id: producer.id });
-                            ws.publish(`room:${currentRoomId}`, JSON.stringify({
-                                type: 'new-producer',
-                                data: { producerId: producer.id, kind: data.kind }
-                            }));
+                            ws.publish(`room:${currentRoomId}`, JSON.stringify({ type: 'new-producer', data: { producerId: producer.id, kind: data.kind } }));
                         }
                         break;
                     }
@@ -149,22 +172,10 @@ const server = Bun.serve<SocketData>({
                         const transport = transports.get(data.transportId);
                         const router = rooms.get(currentRoomId);
                         if (!transport || !router) return;
-
                         if (router.canConsume({ producerId: data.producerId, rtpCapabilities: data.rtpCapabilities })) {
-                            const consumer = await transport.consume({
-                                producerId: data.producerId,
-                                rtpCapabilities: data.rtpCapabilities,
-                                paused: true,
-                            });
+                            const consumer = await transport.consume({ producerId: data.producerId, rtpCapabilities: data.rtpCapabilities, paused: true });
                             consumers.set(consumer.id, consumer);
-                            reply({
-                                params: {
-                                    id: consumer.id,
-                                    producerId: data.producerId,
-                                    kind: consumer.kind,
-                                    rtpParameters: consumer.rtpParameters,
-                                },
-                            });
+                            reply({ params: { id: consumer.id, producerId: data.producerId, kind: consumer.kind, rtpParameters: consumer.rtpParameters } });
                         }
                         break;
                     }
@@ -176,7 +187,6 @@ const server = Bun.serve<SocketData>({
                     }
                 }
             } catch (err) {
-                console.error('Validation/Auth error:', err);
                 ws.send(JSON.stringify({ type: 'error', data: 'Invalid message or unauthorized' }));
             }
         },
@@ -188,3 +198,4 @@ const server = Bun.serve<SocketData>({
 });
 
 console.log(`Secure signaling server running on http://localhost:${server.port}`);
+console.log(`Swagger UI available at http://localhost:${server.port}/docs`);

@@ -1,0 +1,54 @@
+services:
+  # Signaling Server (Backend)
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: meeting-server
+    ports:
+      - "3001:3001"                   # HTTP/OpenAPI
+      - "10000-10100:10000-10100/udp" # WebRTC Media Traffic (UDP Range)
+    environment:
+      - NODE_ENV=production
+      - SERVER_PORT=3001
+      - JWT_SECRET=demo-secret-key-change-me
+      - MEDIASOUP_MIN_PORT=10000
+      - MEDIASOUP_MAX_PORT=10100
+      - ANNOUNCED_IP=127.0.0.1        # Set this to your public/host IP for WebRTC to work
+    # Security: Hardening the container
+    cap_drop:
+      - ALL                           # Drops all kernel capabilities
+    security_opt:
+      - no-new-privileges:true        # Prevents privilege escalation
+    read_only: false                  # Set to true if your app doesn't write to disk
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Next.js Application (Frontend)
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: meeting-web
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SERVER_URL=http://localhost:3001
+    # Security: Hardening the container
+    cap_drop:
+      - ALL                           # Drops all kernel capabilities
+    security_opt:
+      - no-new-privileges:true        # Prevents privilege escalation
+    restart: unless-stopped
+    depends_on:
+      - server
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

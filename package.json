@@ -7,9 +7,11 @@
   "scripts": {
     "dev": "bun --filter \"*\" dev",
     "build": "bun --filter \"*\" build",
-    "start": "bun --filter \"*\" start"
+    "start": "bun --filter \"*\" start",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "typescript": "^5.0.0"
   },
   "trustedDependencies": [
