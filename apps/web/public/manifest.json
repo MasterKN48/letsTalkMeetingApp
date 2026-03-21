@@ -1,7 +1,7 @@
 {
   "name": "Let'sTalk",
   "short_name": "Let'sTalk",
-  "description": "Next-gen SFU video meetings with real-time AI translation and voice cloning.",
+  "description": "Next-gen video meetings with real-time AI translation and voice cloning.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

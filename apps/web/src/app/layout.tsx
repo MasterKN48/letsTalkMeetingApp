@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   ),
-  title: "Let'sTalk — AI-Powered SFU Meetings",
+  title: "Let'sTalk — AI-Powered Translation Meetings",
   description:
     "Next-generation video meetings with real-time AI translation and voice cloning. Ultra-low latency, end-to-end encrypted.",
   manifest: "/manifest.json",
@@ -63,7 +63,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: dark)", color: "#0d1117" },
-    { media: "(prefers-color-scheme: light)", color: "#6366f1" },
+    { media: "(prefers-color-scheme: light)", color: "#f5f5f5" },
   ],
 };
 
