@@ -1,20 +1,22 @@
-import { Metadata } from 'next';
-import { Suspense } from 'react';
+import { Metadata } from "next";
+import { Suspense } from "react";
 import Image from "next/image";
 import { SpotlightNavbar } from "@/components/ui/spotlight-navbar";
 import { PerspectiveGrid } from "@/components/ui/perspective-grid";
 import { ThemeToggleButton } from "@/components/ui/theme-toggle";
 import { Globe, Cpu, Video } from "lucide-react";
 import { LiquidMetalButton } from "@/components/ui/liquid-metal";
-import JoinRoomForm from '@/components/join-room-form';
+import JoinRoomForm from "@/components/join-room-form";
 
 export const metadata: Metadata = {
   title: "Let'sTalk: AI-Powered SFU Meetings",
-  description: "Next-generation video meetings with real-time translation and voice cloning. Experience the future of global communication.",
+  description:
+    "Next-generation video meetings with real-time translation and voice cloning. Experience the future of global communication.",
   openGraph: {
     title: "Let'sTalk — AI-Powered SFU Meetings",
-    description: "Real-time AI translation, voice cloning, and ultra-low latency video calls.",
-    images: [{ url: '/icons/og-image.png', width: 630, height: 630 }],
+    description:
+      "Real-time AI translation, voice cloning, and ultra-low latency video calls.",
+    images: [{ url: "/icons/og-image.png", width: 630, height: 630 }],
     type: "website",
   },
 };
@@ -39,7 +41,6 @@ export default function Page() {
       {/* Hero Section */}
       <div className="w-full max-w-7xl px-6 relative z-10 pt-10 pb-20">
         <div className="flex flex-col lg:flex-row gap-12 items-center">
-          
           {/* Static Hero Side */}
           <div className="flex-1 space-y-10">
             <div className="space-y-6">
@@ -83,30 +84,34 @@ export default function Page() {
           </div>
 
           {/* 2. Dynamic Hole (PPR Strategy) */}
-          <Suspense fallback={
-            <div className="flex-1 w-full max-w-lg bg-card/60 animate-pulse rounded-[3rem] h-[500px]" />
-          }>
+          <Suspense
+            fallback={
+              <div className="flex-1 w-full max-w-lg bg-card/60 animate-pulse rounded-[3rem] h-[500px]" />
+            }
+          >
             <JoinRoomForm />
           </Suspense>
-
         </div>
       </div>
 
       {/* Static Features (Zero Client-Side JS needed for rendering) */}
-      <section id="features" className="w-full max-w-7xl px-6 py-32 relative z-10">
+      <section
+        id="features"
+        className="w-full max-w-7xl px-6 py-32 relative z-10"
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <FeatureCard 
-            icon={<Globe size={24} />} 
+          <FeatureCard
+            icon={<Globe size={24} />}
             title="Real-time Translation"
             desc="Break language barriers with instant AI-powered voice and text translation during your calls."
           />
-          <FeatureCard 
-            icon={<Cpu size={24} />} 
+          <FeatureCard
+            icon={<Cpu size={24} />}
             title="Voice Cloning"
             desc="Communicate in any language while maintaining your natural voice tone and expression."
           />
-          <FeatureCard 
-            icon={<Video size={24} />} 
+          <FeatureCard
+            icon={<Video size={24} />}
             title="SFU Engine"
             desc="Ultra-low latency Selective Forwarding Unit architecture powered by Mediasoup and Bun."
           />
@@ -126,15 +131,21 @@ export default function Page() {
   );
 }
 
-function FeatureCard({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) {
+function FeatureCard({
+  icon,
+  title,
+  desc,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+}) {
   return (
     <div className="p-8 rounded-[2.5rem] bg-card/10 backdrop-blur-md border border-border/50 space-y-4 hover:translate-y-[-10px] transition-transform duration-300">
       <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
         {icon}
       </div>
-      <h3 className="text-xl font-black uppercase tracking-tight">
-        {title}
-      </h3>
+      <h3 className="text-xl font-black uppercase tracking-tight">{title}</h3>
       <p className="text-sm text-muted-foreground font-medium leading-relaxed">
         {desc}
       </p>

@@ -93,7 +93,9 @@ export default function RoomInterface({
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       } catch (err) {
         console.error("Mic/Cam access denied:", err);
-        setError("Camera/Microphone access denied. Please enable permissions in your browser.");
+        setError(
+          "Camera/Microphone access denied. Please enable permissions in your browser.",
+        );
       }
     };
     startPreview();
@@ -135,7 +137,7 @@ export default function RoomInterface({
         roomId,
         (producerId, kind, pName, pId) =>
           handleNewProducer(producerId, kind, pName, pId),
-        (producerId, pId) => handleProducerClosed(producerId, pId)
+        (producerId, pId) => handleProducerClosed(producerId, pId),
       );
       clientRef.current = client;
 
@@ -167,7 +169,8 @@ export default function RoomInterface({
       setJoiningStatus("");
     } catch (err: unknown) {
       console.error("Join failed:", err);
-      const message = err instanceof Error ? err.message : "Failed to join room";
+      const message =
+        err instanceof Error ? err.message : "Failed to join room";
       setError(message || "Failed to join room. Please check your connection.");
       setShowLobby(true);
       setJoiningStatus("");
@@ -178,7 +181,7 @@ export default function RoomInterface({
     producerId: string,
     kind: string,
     producerUserName: string,
-    producerUserId: string
+    producerUserId: string,
   ) => {
     if (!clientRef.current) return;
     const currentUserId = clientRef.current.getUserId();
@@ -265,9 +268,11 @@ export default function RoomInterface({
       onClick: () => {
         const cleanUrl = window.location.origin + window.location.pathname;
         if (navigator.share) {
-          navigator.share({
-            url: cleanUrl,
-          }).catch(console.error);
+          navigator
+            .share({
+              url: cleanUrl,
+            })
+            .catch(console.error);
         } else {
           navigator.clipboard.writeText(cleanUrl);
           alert("Link copied to clipboard!");
@@ -293,6 +298,7 @@ export default function RoomInterface({
               alt="Logo"
               width={40}
               height={40}
+              loading="eager"
               className="dark:filter dark:invert"
             />
             <h1 className="text-4xl font-black text-foreground italic tracking-tighter uppercase whitespace-nowrap">
@@ -300,7 +306,8 @@ export default function RoomInterface({
             </h1>
           </div>
           <p className="text-muted-foreground font-medium">
-            Room ID: <span className="text-primary font-mono vt-room-id">{roomId}</span>
+            Room ID:{" "}
+            <span className="text-primary font-mono vt-room-id">{roomId}</span>
           </p>
         </div>
 
@@ -388,7 +395,8 @@ export default function RoomInterface({
               className="w-full"
               metalConfig={{ colorTint: "#3b82f6" }}
             >
-              Join Meeting <ArrowRight size={20} className="inline-block ml-2" />
+              Join Meeting{" "}
+              <ArrowRight size={20} className="inline-block ml-2" />
             </LiquidMetalButton>
           )}
         </div>
@@ -406,6 +414,7 @@ export default function RoomInterface({
             alt="Logo"
             width={32}
             height={32}
+            loading="eager"
             className="dark:filter dark:invert"
           />
           <h2 className="text-2xl font-black text-foreground italic tracking-tighter uppercase">
@@ -428,26 +437,30 @@ export default function RoomInterface({
           )}
           <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-500 text-xs font-bold uppercase tracking-tight">
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="opacity-80">{isJoined ? "Live" : "Connecting"}</span>
+            <span className="opacity-80">
+              {isJoined ? "Live" : "Connecting"}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Video Grid */}
-      <div 
+      <div
         className={cn(
           "flex-1 gap-6 min-h-0",
-          maximizedId 
-            ? "flex flex-col md:flex-row relative" 
-            : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr"
+          maximizedId
+            ? "flex flex-col md:flex-row relative"
+            : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr",
         )}
       >
         {/* Local Video */}
         {(maximizedId === null || maximizedId === "local") && (
-          <div 
+          <div
             className={cn(
               "relative overflow-hidden rounded-[2.5rem] bg-card border border-border transition-all duration-500 shadow-[0_20px_50px_rgba(0,0,0,0.1)]",
-              maximizedId === "local" ? "flex-1 order-1 h-full" : "h-full w-full aspect-video"
+              maximizedId === "local"
+                ? "flex-1 order-1 h-full"
+                : "h-full w-full aspect-video",
             )}
           >
             <video
@@ -473,16 +486,24 @@ export default function RoomInterface({
 
             <div className="absolute bottom-6 right-6 flex items-center gap-2 z-10">
               <button
-                onClick={() => setMaximizedId(maximizedId === "local" ? null : "local")}
+                onClick={() =>
+                  setMaximizedId(maximizedId === "local" ? null : "local")
+                }
                 className="w-10 h-10 rounded-full flex items-center justify-center transition-all bg-background/80 text-foreground hover:bg-muted"
                 title={maximizedId === "local" ? "Minimize" : "Full window"}
               >
-                {maximizedId === "local" ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                {maximizedId === "local" ? (
+                  <Minimize2 size={16} />
+                ) : (
+                  <Maximize2 size={16} />
+                )}
               </button>
               <button
                 onClick={toggleAudio}
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                  audioMuted ? "bg-destructive text-destructive-foreground" : "bg-background/80 text-foreground hover:bg-muted"
+                  audioMuted
+                    ? "bg-destructive text-destructive-foreground"
+                    : "bg-background/80 text-foreground hover:bg-muted"
                 }`}
               >
                 {audioMuted ? <MicOff size={16} /> : <Mic size={16} />}
@@ -490,7 +511,9 @@ export default function RoomInterface({
               <button
                 onClick={toggleVideo}
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                  videoOff ? "bg-destructive text-destructive-foreground" : "bg-background/80 text-foreground hover:bg-muted"
+                  videoOff
+                    ? "bg-destructive text-destructive-foreground"
+                    : "bg-background/80 text-foreground hover:bg-muted"
                 }`}
               >
                 {videoOff ? <VideoOff size={16} /> : <Video size={16} />}
@@ -500,33 +523,35 @@ export default function RoomInterface({
         )}
 
         {/* Remote Videos */}
-        {maximizedId !== null && maximizedId !== "local" && remoteStreams.has(maximizedId) && (
-          <div className="flex-1 order-1 h-full relative overflow-hidden rounded-[2.5rem] bg-card border border-border animate-in fade-in duration-500 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
-            <RemoteVideo stream={remoteStreams.get(maximizedId)!.stream} />
-            <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-background/80 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-border tracking-wide text-primary z-10">
-              <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_8_rgba(99,102,241,0.5)]" />
-              {remoteStreams.get(maximizedId)!.userName}
+        {maximizedId !== null &&
+          maximizedId !== "local" &&
+          remoteStreams.has(maximizedId) && (
+            <div className="flex-1 order-1 h-full relative overflow-hidden rounded-[2.5rem] bg-card border border-border animate-in fade-in duration-500 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
+              <RemoteVideo stream={remoteStreams.get(maximizedId)!.stream} />
+              <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-background/80 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-border tracking-wide text-primary z-10">
+                <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_8_rgba(99,102,241,0.5)]" />
+                {remoteStreams.get(maximizedId)!.userName}
+              </div>
+              <div className="absolute bottom-6 right-6 z-10">
+                <button
+                  onClick={() => setMaximizedId(null)}
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all bg-background/80 text-foreground hover:bg-muted shadow-lg"
+                >
+                  <Minimize2 size={16} />
+                </button>
+              </div>
             </div>
-            <div className="absolute bottom-6 right-6 z-10">
-              <button
-                onClick={() => setMaximizedId(null)}
-                className="w-10 h-10 rounded-full flex items-center justify-center transition-all bg-background/80 text-foreground hover:bg-muted shadow-lg"
-              >
-                <Minimize2 size={16} />
-              </button>
-            </div>
-          </div>
-        )}
+          )}
 
         {/* Sidebar for non-maximized ones when someone is maximized */}
         {maximizedId !== null && (
           <div className="w-full md:w-64 flex md:flex-col gap-4 overflow-x-auto md:overflow-y-auto pb-4 md:pb-0 scrollbar-hide">
             {maximizedId !== "local" && (
-              <div 
+              <div
                 className="relative overflow-hidden rounded-2xl bg-card border border-border aspect-video shrink-0 cursor-pointer hover:ring-2 ring-primary transition-all duration-300 shadow-lg"
                 onClick={() => setMaximizedId("local")}
               >
-                 <video
+                <video
                   ref={localVideoRef}
                   autoPlay
                   muted
@@ -535,7 +560,7 @@ export default function RoomInterface({
                     !videoOff ? "-scale-x-100" : "hidden"
                   }`}
                 />
-                 {videoOff && (
+                {videoOff && (
                   <div className="absolute inset-0 flex items-center justify-center bg-muted">
                     <User size={24} className="text-muted-foreground/30" />
                   </div>
@@ -563,28 +588,29 @@ export default function RoomInterface({
         )}
 
         {/* Regular Grid (when nothing maximized) */}
-        {maximizedId === null && Array.from(remoteStreams.entries()).map(
-          ([id, { stream, userName: remoteName }]) => (
-            <div
-              key={id}
-              className="relative overflow-hidden rounded-[2.5rem] bg-card h-full w-full aspect-video border border-border animate-in fade-in zoom-in-95 duration-700 shadow-[0_20px_50px_rgba(0,0,0,0.1)] group"
-            >
-              <RemoteVideo stream={stream} />
-              <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-background/80 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-border tracking-wide text-primary z-10">
-                <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_8_rgba(99,102,241,0.5)]" />
-                {remoteName}
+        {maximizedId === null &&
+          Array.from(remoteStreams.entries()).map(
+            ([id, { stream, userName: remoteName }]) => (
+              <div
+                key={id}
+                className="relative overflow-hidden rounded-[2.5rem] bg-card h-full w-full aspect-video border border-border animate-in fade-in zoom-in-95 duration-700 shadow-[0_20px_50px_rgba(0,0,0,0.1)] group"
+              >
+                <RemoteVideo stream={stream} />
+                <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-background/80 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-border tracking-wide text-primary z-10">
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_8_rgba(99,102,241,0.5)]" />
+                  {remoteName}
+                </div>
+                <div className="absolute bottom-6 right-6 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => setMaximizedId(id)}
+                    className="w-10 h-10 rounded-full flex items-center justify-center transition-all bg-background/80 text-foreground hover:bg-muted shadow-lg"
+                  >
+                    <Maximize2 size={16} />
+                  </button>
+                </div>
               </div>
-              <div className="absolute bottom-6 right-6 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={() => setMaximizedId(id)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all bg-background/80 text-foreground hover:bg-muted shadow-lg"
-                >
-                  <Maximize2 size={16} />
-                </button>
-              </div>
-            </div>
-          )
-        )}
+            ),
+          )}
       </div>
 
       {/* Control Bar */}
