@@ -1,6 +1,6 @@
-import { RtpCodecCapability } from 'mediasoup/node/lib/RtpParameters';
+import { RouterRtpCodecCapability } from 'mediasoup/types';
 
-export const mediaCodecs: RtpCodecCapability[] = [
+export const mediaCodecs: RouterRtpCodecCapability[] = [
   {
     kind: 'audio',
     mimeType: 'audio/opus',

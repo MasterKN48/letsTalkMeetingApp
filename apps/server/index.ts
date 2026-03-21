@@ -49,7 +49,7 @@ const loginRoute = createRoute({
 
 app.openapi(loginRoute as any, async (c: any) => {
     const { userId, userName, roomId } = c.req.valid('json');
-    const token = sign({ userId, userName, roomId }, JWT_SECRET, { expiresIn: '1h' });
+    const token = sign({ userId, userName, roomId }, JWT_SECRET, { algorithm: 'HS256', expiresIn: '1h' });
     return c.json({ token }, 200);
 });
 
@@ -147,7 +147,7 @@ const server = Bun.serve<SocketData>({
 
         if (token) {
             try {
-                const decoded = verify(token, JWT_SECRET) as { userId: string, userName: string, roomId: string };
+                const decoded = verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as { userId: string, userName: string, roomId: string };
                 if (server.upgrade(req, { data: { id: crypto.randomUUID(), ...decoded } })) {
                     return;
                 }

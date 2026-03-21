@@ -20,6 +20,7 @@ The server uses `Bun.serve` to handle both REST and WebSocket traffic.
 1.  **Handshake**: Clients must request the `/` path with a `?token=JWT` query parameter.
 2.  **Validation**: The `fetch` handler verifies the JWT before calling `server.upgrade(req, { data: { ... } })`.
 3.  **Context**: Authenticated user data (`userId`, `userName`, `roomId`) is stored in the `ws.data` context.
+4.  **🔒 Security Hardening**: JWT verification is configured to **strictly enforce** the `HS256` algorithm. This prevents both the "none" algorithm attack and "algorithm confusion" attacks, where an attacker might try to use a public key as a HMAC secret.
 
 ## 📡 Mediasoup Server Implementation
 The server manages the following core Mediasoup objects in memory:
