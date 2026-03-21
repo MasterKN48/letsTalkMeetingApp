@@ -30,6 +30,28 @@ When a user disconnects:
 2.  The server broadcasts a `producer-closed` event to the specific room topic.
 3.  Remote clients receive this and remove the corresponding streams from their UI.
 
+## 🎥 Simulcast & Video Quality
+
+This application uses **Simulcast (Multi-Layer Encoding)** to ensure high-performance video across varying network conditions.
+
+### Multi-Tier Encodings
+The video producer sends multiple quality layers simultaneously:
+- **Low ('l')**: 360p @ 15fps, 100 kbps (Efficient for grid views/mobile).
+- **Medium ('m')**: 720p @ 30fps, 400 kbps (Standard quality).
+- **High ('h')**: 1080p @ 30fps, 1.2 Mbps (High fidelity).
+- **Ultra ('f')**: 1080p @ 60fps, 4.0 Mbps (Premium quality for robust networks).
+
+### 🚀 1080p@60fps Support
+The system is configured to request **1080p at 60 frames per second** from the user's camera when available. The Mediasoup SFU intelligently manages these layers, delivering the highest possible quality to each viewer based on their individual bandwidth.
+
+## 📺 Spotlight (Maximize) Mode
+
+To enhance the meeting experience, the application includes a **Spotlight (Maximize)** feature:
+- Users can click the **Maximize** icon on any video tile (including their own).
+- The selected video becomes the primary focus (taking up major screen space).
+- Other participants are moved to a high-density, scrollable side gallery.
+- This transition is handled dynamically without re-negotiating the media stream, ensuring zero-latency switching.
+
 ## 🌐 Port Management
 Mediasoup requires specific port ranges for WebRTC traffic (configured in `apps/server/index.ts`):
 - **RTC Ports**: 10000 - 10100 (UDP and TCP).

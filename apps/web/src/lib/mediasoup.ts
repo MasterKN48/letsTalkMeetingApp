@@ -144,8 +144,8 @@ export class MediasoupClient {
     return transport;
   }
 
-  async produce(track: MediaStreamTrack): Promise<types.Producer> {
-    const producer = await this.sendTransport!.produce({ track });
+  async produce(track: MediaStreamTrack, encodings?: types.RtpEncodingParameters[]): Promise<types.Producer> {
+    const producer = await this.sendTransport!.produce({ track, encodings });
     this.producers.set(producer.id, producer);
     return producer;
   }

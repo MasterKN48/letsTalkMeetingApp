@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { MediasoupClient } from "@/lib/mediasoup";
+import { types } from "mediasoup-client";
 import {
   Video,
   VideoOff,
@@ -14,6 +15,8 @@ import {
   Loader2,
   ArrowRight,
   Share,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { GlassDock } from "@/components/ui/glass-dock";
 import { LiquidMetalButton } from "@/components/ui/liquid-metal";
@@ -23,6 +26,34 @@ interface RoomInterfaceProps {
   roomId: string;
   initialUserName?: string;
 }
+
+const VIDEO_ENCODINGS: types.RtpEncodingParameters[] = [
+  {
+    rid: "l",
+    scaleResolutionDownBy: 4.0,
+    maxBitrate: 100000,
+    maxFramerate: 15,
+  },
+  {
+    rid: "m",
+    scaleResolutionDownBy: 2.0,
+    maxBitrate: 400000,
+    maxFramerate: 30,
+  },
+  {
+    rid: "h",
+    scaleResolutionDownBy: 1.0,
+    maxBitrate: 1200000,
+    maxFramerate: 30,
+  },
+  // High performance / Ultra layer for 60fps support
+  {
+    rid: "f",
+    scaleResolutionDownBy: 1.0,
+    maxBitrate: 4000000,
+    maxFramerate: 60,
+  },
+];
 
 export default function RoomInterface({
   roomId,
@@ -40,6 +71,7 @@ export default function RoomInterface({
 
   const [audioMuted, setAudioMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
+  const [maximizedId, setMaximizedId] = useState<string | null>(null); // "local" or userId
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const clientRef = useRef<MediasoupClient | null>(null);
@@ -50,7 +82,11 @@ export default function RoomInterface({
     const startPreview = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: {
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            frameRate: { ideal: 60 },
+          },
           audio: true,
         });
         setLocalStream(stream);
@@ -114,7 +150,11 @@ export default function RoomInterface({
       setJoiningStatus("Publishing media...");
       if (localStream) {
         for (const track of localStream.getTracks()) {
-          await client.produce(track);
+          if (track.kind === "video") {
+            await client.produce(track, VIDEO_ENCODINGS);
+          } else {
+            await client.produce(track);
+          }
         }
       }
 
@@ -184,7 +224,7 @@ export default function RoomInterface({
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
     }
-  }, [localStream, showLobby, isJoined]);
+  }, [localStream, showLobby, isJoined, maximizedId]);
 
   const toggleAudio = () => {
     if (localStream) {
@@ -394,61 +434,153 @@ export default function RoomInterface({
       </div>
 
       {/* Video Grid */}
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr min-h-0">
+      <div 
+        className={cn(
+          "flex-1 gap-6 min-h-0",
+          maximizedId 
+            ? "flex flex-col md:flex-row relative" 
+            : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr"
+        )}
+      >
         {/* Local Video */}
-        <div className="relative overflow-hidden rounded-[2.5rem] bg-card h-full w-full aspect-video border border-border shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
-          <video
-            ref={localVideoRef}
-            autoPlay
-            muted
-            playsInline
-            className={`w-full h-full object-cover transform ${
-              !videoOff ? "-scale-x-100" : "hidden"
-            }`}
-          />
-          {videoOff && (
-            <div className="absolute inset-0 flex items-center justify-center bg-muted">
-              <div className="w-32 h-32 rounded-full bg-card border-2 border-border flex items-center justify-center text-5xl font-bold bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-card to-muted text-muted-foreground shadow-2xl">
-                <User size={64} className="text-muted-foreground/50" />
+        {(maximizedId === null || maximizedId === "local") && (
+          <div 
+            className={cn(
+              "relative overflow-hidden rounded-[2.5rem] bg-card border border-border transition-all duration-500 shadow-[0_20px_50px_rgba(0,0,0,0.1)]",
+              maximizedId === "local" ? "flex-1 order-1 h-full" : "h-full w-full aspect-video"
+            )}
+          >
+            <video
+              ref={localVideoRef}
+              autoPlay
+              muted
+              playsInline
+              className={`w-full h-full object-cover transform ${
+                !videoOff ? "-scale-x-100" : "hidden"
+              }`}
+            />
+            {videoOff && (
+              <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                <div className="w-32 h-32 rounded-full bg-card border-2 border-border flex items-center justify-center text-5xl font-bold bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-card to-muted text-muted-foreground shadow-2xl">
+                  <User size={64} className="text-muted-foreground/50" />
+                </div>
               </div>
+            )}
+            <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-background/80 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-border tracking-wide text-foreground z-10">
+              <div className="w-2 h-2 bg-primary rounded-full shadow-[0_0_8px_var(--primary)] animate-pulse" />
+              {userName} (You)
             </div>
-          )}
-          <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-background/80 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-border tracking-wide text-foreground z-10">
-            <div className="w-2 h-2 bg-primary rounded-full shadow-[0_0_8px_var(--primary)] animate-pulse" />
-            {userName} (You)
-          </div>
 
-          <div className="absolute bottom-6 right-6 flex items-center gap-2 z-10">
-            <button
-              onClick={toggleAudio}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                audioMuted ? "bg-destructive text-destructive-foreground" : "bg-background/80 text-foreground hover:bg-muted"
-              }`}
-            >
-              {audioMuted ? <MicOff size={16} /> : <Mic size={16} />}
-            </button>
-            <button
-              onClick={toggleVideo}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                videoOff ? "bg-destructive text-destructive-foreground" : "bg-background/80 text-foreground hover:bg-muted"
-              }`}
-            >
-              {videoOff ? <VideoOff size={16} /> : <Video size={16} />}
-            </button>
+            <div className="absolute bottom-6 right-6 flex items-center gap-2 z-10">
+              <button
+                onClick={() => setMaximizedId(maximizedId === "local" ? null : "local")}
+                className="w-10 h-10 rounded-full flex items-center justify-center transition-all bg-background/80 text-foreground hover:bg-muted"
+                title={maximizedId === "local" ? "Minimize" : "Full window"}
+              >
+                {maximizedId === "local" ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </button>
+              <button
+                onClick={toggleAudio}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                  audioMuted ? "bg-destructive text-destructive-foreground" : "bg-background/80 text-foreground hover:bg-muted"
+                }`}
+              >
+                {audioMuted ? <MicOff size={16} /> : <Mic size={16} />}
+              </button>
+              <button
+                onClick={toggleVideo}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                  videoOff ? "bg-destructive text-destructive-foreground" : "bg-background/80 text-foreground hover:bg-muted"
+                }`}
+              >
+                {videoOff ? <VideoOff size={16} /> : <Video size={16} />}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Remote Videos */}
-        {Array.from(remoteStreams.entries()).map(
+        {maximizedId !== null && maximizedId !== "local" && remoteStreams.has(maximizedId) && (
+          <div className="flex-1 order-1 h-full relative overflow-hidden rounded-[2.5rem] bg-card border border-border animate-in fade-in duration-500 shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
+            <RemoteVideo stream={remoteStreams.get(maximizedId)!.stream} />
+            <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-background/80 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-border tracking-wide text-primary z-10">
+              <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_8_rgba(99,102,241,0.5)]" />
+              {remoteStreams.get(maximizedId)!.userName}
+            </div>
+            <div className="absolute bottom-6 right-6 z-10">
+              <button
+                onClick={() => setMaximizedId(null)}
+                className="w-10 h-10 rounded-full flex items-center justify-center transition-all bg-background/80 text-foreground hover:bg-muted shadow-lg"
+              >
+                <Minimize2 size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Sidebar for non-maximized ones when someone is maximized */}
+        {maximizedId !== null && (
+          <div className="w-full md:w-64 flex md:flex-col gap-4 overflow-x-auto md:overflow-y-auto pb-4 md:pb-0 scrollbar-hide">
+            {maximizedId !== "local" && (
+              <div 
+                className="relative overflow-hidden rounded-2xl bg-card border border-border aspect-video shrink-0 cursor-pointer hover:ring-2 ring-primary transition-all duration-300 shadow-lg"
+                onClick={() => setMaximizedId("local")}
+              >
+                 <video
+                  ref={localVideoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className={`w-full h-full object-cover transform ${
+                    !videoOff ? "-scale-x-100" : "hidden"
+                  }`}
+                />
+                 {videoOff && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                    <User size={24} className="text-muted-foreground/30" />
+                  </div>
+                )}
+                <div className="absolute bottom-2 left-2 text-[10px] font-bold bg-background/80 backdrop-blur-md px-2 py-1 rounded-lg border border-border truncate max-w-[90%]">
+                  {userName} (You)
+                </div>
+              </div>
+            )}
+            {Array.from(remoteStreams.entries())
+              .filter(([id]) => id !== maximizedId)
+              .map(([id, { stream, userName: remoteName }]) => (
+                <div
+                  key={id}
+                  className="relative overflow-hidden rounded-2xl bg-card border border-border aspect-video shrink-0 cursor-pointer hover:ring-2 ring-primary transition-all duration-300 shadow-lg"
+                  onClick={() => setMaximizedId(id)}
+                >
+                  <RemoteVideo stream={stream} />
+                  <div className="absolute bottom-2 left-2 text-[10px] font-bold bg-background/80 backdrop-blur-md px-2 py-1 rounded-lg border border-border truncate max-w-[90%] text-primary">
+                    {remoteName}
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {/* Regular Grid (when nothing maximized) */}
+        {maximizedId === null && Array.from(remoteStreams.entries()).map(
           ([id, { stream, userName: remoteName }]) => (
             <div
               key={id}
-              className="relative overflow-hidden rounded-[2.5rem] bg-card h-full w-full aspect-video border border-border animate-in fade-in zoom-in-95 duration-700 shadow-[0_20px_50px_rgba(0,0,0,0.1)]"
+              className="relative overflow-hidden rounded-[2.5rem] bg-card h-full w-full aspect-video border border-border animate-in fade-in zoom-in-95 duration-700 shadow-[0_20px_50px_rgba(0,0,0,0.1)] group"
             >
               <RemoteVideo stream={stream} />
               <div className="absolute bottom-6 left-6 flex items-center gap-2 bg-background/80 backdrop-blur-md px-4 py-2 rounded-2xl text-xs font-bold border border-border tracking-wide text-primary z-10">
                 <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_8_rgba(99,102,241,0.5)]" />
                 {remoteName}
+              </div>
+              <div className="absolute bottom-6 right-6 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => setMaximizedId(id)}
+                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all bg-background/80 text-foreground hover:bg-muted shadow-lg"
+                >
+                  <Maximize2 size={16} />
+                </button>
               </div>
             </div>
           )
