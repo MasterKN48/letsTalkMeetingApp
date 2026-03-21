@@ -5,6 +5,7 @@ import { verify, sign } from 'jsonwebtoken';
 import * as mediasoup from 'mediasoup';
 
 import { mediaCodecs } from './mediasoup.config';
+import { asyncApiSpec } from './asyncapi';
 
 const port = Number(process.env.SERVER_PORT) || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
@@ -54,17 +55,59 @@ app.openapi(loginRoute as any, async (c: any) => {
 
 
 
-// Swagger UI configuration
+// Define the Health Route for OpenAPI
+const healthRoute = createRoute({
+    method: 'get',
+    path: '/health',
+    summary: 'Check the health of the signaling server',
+    responses: {
+        '200': {
+            content: {
+                'application/json': {
+                    schema: z.object({
+                        status: z.string().openapi({ example: 'ok' }),
+                        uptime: z.number().openapi({ example: 123.45 }),
+                        mediasoup: z.object({
+                            workerPid: z.number().openapi({ example: 1234 }),
+                            roomsCount: z.number().openapi({ example: 5 }),
+                        }),
+                    }),
+                },
+            },
+            description: 'Returns the health status of the server',
+        },
+    },
+});
+
+app.openapi(healthRoute as any, (c: any) => {
+    return c.json({
+        status: 'ok',
+        uptime: process.uptime(),
+        mediasoup: {
+            workerPid: worker?.pid,
+            roomsCount: rooms.size,
+        },
+    }, 200);
+});
+
+
+
+// Swagger UI configuration (REST only)
 app.doc('/doc', {
     openapi: '3.0.0',
     info: {
         version: '1.0.0',
-        title: 'Mediasoup Signaling API',
-        description: 'Secure signaling for WebRTC meetings',
+        title: 'Mediasoup Signaling REST API',
+        description: 'RESTful endpoints for Mediasoup signaling. For WebSocket documentation, see /asyncapi',
     },
 });
 
 app.get('/docs', swaggerUI({ url: '/doc' }));
+
+// AsyncAPI spec route
+app.get('/asyncapi', (c: any) => {
+    return c.json(asyncApiSpec);
+});
 
 // Zod Schemas for WebSocket messages (staying the same for now)
 const MessageSchema = z.discriminatedUnion('type', [
@@ -79,7 +122,7 @@ const MessageSchema = z.discriminatedUnion('type', [
 // Mediasoup state
 let worker: mediasoup.types.Worker;
 const rooms = new Map<string, mediasoup.types.Router>();
-const producers = new Map<string, { producer: mediasoup.types.Producer, userName: string, roomId: string }>();
+const producers = new Map<string, { producer: mediasoup.types.Producer, userName: string, userId: string, roomId: string }>();
 const consumers = new Map<string, mediasoup.types.Consumer>();
 const transports = new Map<string, mediasoup.types.WebRtcTransport>();
 
@@ -139,7 +182,7 @@ const server = Bun.serve<SocketData>({
                         // Get current producers in the room
                         const existingProducers = Array.from(producers.values())
                             .filter(p => p.roomId === currentRoomId)
-                            .map(p => ({ producerId: p.producer.id, kind: p.producer.kind, userName: p.userName }));
+                            .map(p => ({ producerId: p.producer.id, kind: p.producer.kind, userName: p.userName, userId: p.userId }));
 
                         reply({ rtpCapabilities: router.rtpCapabilities, existingProducers });
                         break;
@@ -173,9 +216,9 @@ const server = Bun.serve<SocketData>({
                         const transport = transports.get(data.transportId);
                         if (transport) {
                             const producer = await transport.produce({ kind: data.kind, rtpParameters: data.rtpParameters });
-                            producers.set(producer.id, { producer, userName: ws.data.userName, roomId: currentRoomId });
+                            producers.set(producer.id, { producer, userName: ws.data.userName, userId: ws.data.userId, roomId: currentRoomId });
                             reply({ id: producer.id });
-                            ws.publish(`room:${currentRoomId}`, JSON.stringify({ type: 'new-producer', data: { producerId: producer.id, kind: data.kind, userName: ws.data.userName } }));
+                            ws.publish(`room:${currentRoomId}`, JSON.stringify({ type: 'new-producer', data: { producerId: producer.id, kind: data.kind, userName: ws.data.userName, userId: ws.data.userId } }));
                         } else {
                             reply({ error: 'Transport not found' });
                         }

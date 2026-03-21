@@ -9,12 +9,12 @@ export class MediasoupClient {
   private producers: Map<string, types.Producer> = new Map();
   private consumers: Map<string, types.Consumer> = new Map();
   private roomId: string;
-  private onNewRemoteProducer: (producerId: string, kind: string, userName: string) => void;
+  private onNewRemoteProducer: (producerId: string, kind: string, userName: string, userId: string) => void;
   private pendingRequests = new Map<string, (data: any) => void>();
 
   constructor(
     roomId: string,
-    onNewRemoteProducer: (producerId: string, kind: string, userName: string) => void,
+    onNewRemoteProducer: (producerId: string, kind: string, userName: string, userId: string) => void,
   ) {
     this.roomId = roomId;
     this.onNewRemoteProducer = onNewRemoteProducer;
@@ -45,7 +45,7 @@ export class MediasoupClient {
                 this.pendingRequests.get(requestId)!(data);
                 this.pendingRequests.delete(requestId);
             } else if (type === 'new-producer') {
-                this.onNewRemoteProducer(data.producerId, data.kind, data.userName);
+                this.onNewRemoteProducer(data.producerId, data.kind, data.userName, data.userId);
             }
         };
     });
@@ -118,13 +118,19 @@ export class MediasoupClient {
     return producer;
   }
 
-  async consume(producerId: string): Promise<types.Consumer> {
-    const { params } = await this.request("consume", {
+  async consume(producerId: string): Promise<types.Consumer | null> {
+    const data = await this.request("consume", {
         transportId: this.recvTransport!.id,
         producerId,
         rtpCapabilities: this.device!.rtpCapabilities,
     });
 
+    if (data.error) {
+        console.error('Consume error:', data.error);
+        return null;
+    }
+
+    const { params } = data;
     const consumer = await this.recvTransport!.consume(params);
     this.consumers.set(consumer.id, consumer);
 

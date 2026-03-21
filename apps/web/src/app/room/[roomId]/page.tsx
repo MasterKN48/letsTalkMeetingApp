@@ -8,7 +8,7 @@ export default function RoomPage() {
   const { roomId } = useParams() as { roomId: string };
   const [userName, setUserName] = useState<string>('');
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStreams, setRemoteStreams] = useState<Map<string, { stream: MediaStream, userName: string }>>(new Map());
+  const [remoteStreams, setRemoteStreams] = useState<Map<string, { stream: MediaStream, userName: string }>>(new Map()); // Key: userId
   const [isJoined, setIsJoined] = useState(false);
   
   const [audioMuted, setAudioMuted] = useState(false);
@@ -46,8 +46,8 @@ export default function RoomPage() {
         if (!authRes.ok) throw new Error('Auth failed');
         const { token } = await authRes.json();
 
-        const client = new MediasoupClient(roomId, (producerId, kind, producerUserName) => {
-          handleNewProducer(producerId, kind, producerUserName);
+        const client = new MediasoupClient(roomId, (producerId, kind, producerUserName, producerUserId) => {
+          handleNewProducer(producerId, kind, producerUserName, producerUserId);
         });
         clientRef.current = client;
 
@@ -62,7 +62,7 @@ export default function RoomPage() {
 
         // 5. Consume Existing Producers
         for (const p of existingProducers) {
-          handleNewProducer(p.producerId, p.kind, p.userName);
+          handleNewProducer(p.producerId, p.kind, p.userName, p.userId);
         }
 
         setIsJoined(true);
@@ -72,16 +72,29 @@ export default function RoomPage() {
       }
     };
 
-    const handleNewProducer = async (producerId: string, kind: string, producerUserName: string) => {
+    const handleNewProducer = async (producerId: string, kind: string, producerUserName: string, producerUserId: string) => {
       if (!clientRef.current) return;
-      console.log('Handling new producer:', producerId, kind, producerUserName);
+      console.log('Handling new producer:', producerId, kind, producerUserName, producerUserId);
       const consumer = await clientRef.current.consume(producerId);
+      if (!consumer) return;
+
       const { track } = consumer;
-      const incomingStream = new MediaStream([track]);
       
       setRemoteStreams((prev) => {
         const next = new Map(prev);
-        next.set(producerId, { stream: incomingStream, userName: producerUserName });
+        const existing = next.get(producerUserId);
+        
+        if (existing) {
+          // Add track to existing stream
+          existing.stream.addTrack(track);
+          // Create a new stream object with the same tracks to trigger a reference change for React
+          const newStream = new MediaStream(existing.stream.getTracks());
+          next.set(producerUserId, { stream: newStream, userName: producerUserName });
+        } else {
+          // Create new stream
+          const incomingStream = new MediaStream([track]);
+          next.set(producerUserId, { stream: incomingStream, userName: producerUserName });
+        }
         return next;
       });
     };
