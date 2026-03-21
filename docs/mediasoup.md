@@ -3,37 +3,34 @@
 This project is a **Selective Forwarding Unit (SFU)**, powered by **Mediasoup**.
 
 ## 🔄 P2P vs. SFU
-- **P2P (mesh)**: Everyone sends video to everyone else. It's expensive for clients (CPU/Upload bandwidth) and doesn't scale well (N*N connections).
-- **SFU (mediasoup)**: Everyone sends **one** stream to the server. The server then replicates and forwards it to everyone else. The client only needs **one** upload and **one** download *per participant*.
+- **P2P (mesh)**: Everyone sends video to everyone else. Expensive for clients and doesn't scale well (N² connections).
+- **SFU (mediasoup)**: Everyone sends **one** stream to the server. The server replicate and forwards it. The client needs **one** upload and **N-1** downloads.
 
 ## 🏗️ Core Structural Entities
-
-### 1. Worker (The Process)
-A Mediasoup process is a single-threaded C++ worker. For multi-core scaling, we typically spawn one worker per CPU core.
-
-### 2. Router (The Virtual Room)
-Each room has its own Router. It manages:
-- **RtpCapabilities**: Codecs (VP8, VP9, Opus, H.264) supported by clients and the server.
-- **Matching**: Connecting Producers (senders) to Consumers (receivers).
-
-### 3. Transport (The Pipe)
-A `WebRtcTransport` represents a network tunnel between the Client and the SFU.
-- **ICE & DTLS**: Negotiation protocols to handle NAT traversal and encryption.
-- **Port Management**: Mediasoup requires a dynamic port range (e.g., 10000-10100) for these transports.
-
-### 4. Producer (Sending)
-Represents an incoming stream to the server (e.g., your camera).
--   `kind`: 'audio' or 'video'.
--   `rtpParameters`: How the media is encoded and sent.
-
-### 5. Consumer (Receiving)
-Represents an outgoing stream from the server (someone else's camera).
--   `producerId`: Which original stream this consumer is linked to.
--   `rtpParameters`: How the server sends the media to you.
+- **Worker**: A single-threaded C++ process. Managed by the Bun server.
+- **Router**: The virtual room that manages audio/video codecs (RTP Capabilities).
+- **Transport**: WebRTC endpoints between client and server.
+- **Producer**: Incoming stream to the server (e.g., your camera).
+- **Consumer**: Outgoing stream from the server (someone else's camera).
 
 ## ⚙️ Lifecycle in this Project
-Check `apps/server/index.ts` to see how we handle these events:
-1.  `worker.createRouter({ mediaCodecs })`
-2.  `router.createWebRtcTransport({ ... })`
-3.  `transport.produce({ kind, rtpParameters })`
-4.  `transport.consume({ producerId, rtpCapabilities })`
+
+### 1. Room Creation
+When the first user joins a room, a Mediasoup Router is created using the `mediaCodecs` configuration (currently supporting **audio/opus** and **video/VP8**).
+
+### 2. State Management
+The signaling server maintains in-memory Maps to track the state across the room:
+- `rooms`: Map of `roomId` to `Router`.
+- `producers`: Map of `producerId` to its metadata (userId, userName, roomId).
+- `transports`: Map of `transportId` to the `WebRtcTransport`.
+
+### 3. Disconnection & Cleanup
+When a user disconnects:
+1.  All `Producers` belonging to that user are closed on the server.
+2.  The server broadcasts a `producer-closed` event to the specific room topic.
+3.  Remote clients receive this and remove the corresponding streams from their UI.
+
+## 🌐 Port Management
+Mediasoup requires specific port ranges for WebRTC traffic (configured in `apps/server/index.ts`):
+- **RTC Ports**: 10000 - 10100 (UDP and TCP).
+- **Announced IP**: Crucial for NAT traversal. The `ANNOUNCED_IP` environment variable ensures clients can reach the SFU behind a firewall or in a Docker container.
