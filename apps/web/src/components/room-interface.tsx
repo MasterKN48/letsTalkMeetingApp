@@ -17,6 +17,7 @@ import {
   Share,
   Maximize2,
   Minimize2,
+  Languages,
 } from "lucide-react";
 import { GlassDock } from "@/components/ui/glass-dock";
 import { LiquidMetalButton } from "@/components/ui/liquid-metal";
@@ -72,6 +73,12 @@ export default function RoomInterface({
   const [audioMuted, setAudioMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
   const [maximizedId, setMaximizedId] = useState<string | null>(null); // "local" or userId
+
+  const [translationEnabled, setTranslationEnabled] = useState(false);
+  const [targetLanguage, setTargetLanguage] = useState("es"); // default spanish
+  const [translationText, setTranslationText] = useState("");
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const clientRef = useRef<MediasoupClient | null>(null);
@@ -138,6 +145,7 @@ export default function RoomInterface({
         (producerId, kind, pName, pId) =>
           handleNewProducer(producerId, kind, pName, pId),
         (producerId, pId) => handleProducerClosed(producerId, pId),
+        (text) => setTranslationText(text)
       );
       clientRef.current = client;
 
@@ -249,6 +257,51 @@ export default function RoomInterface({
     }
   };
 
+  // AudioWorklet initialization for translation
+  useEffect(() => {
+    if (!translationEnabled || !localStream || !clientRef.current) {
+      if (workletNodeRef.current) {
+        workletNodeRef.current.disconnect();
+        workletNodeRef.current = null;
+      }
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close();
+        audioCtxRef.current = null;
+      }
+      return;
+    }
+
+    const initWorklet = async () => {
+      try {
+        const audioCtx = new (window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)({
+          sampleRate: 16000,
+          latencyHint: 'interactive'
+        });
+        audioCtxRef.current = audioCtx;
+
+        await audioCtx.audioWorklet.addModule('/processor.js');
+        
+        const source = audioCtx.createMediaStreamSource(localStream);
+        const workletNode = new AudioWorkletNode(audioCtx, 'audio-stream-processor');
+        workletNodeRef.current = workletNode;
+
+        workletNode.port.onmessage = (event) => {
+          // Chunk is already Int16Array and passed through Worklet VAD
+          clientRef.current?.sendAudioChunk(event.data);
+        };
+
+        source.connect(workletNode);
+        workletNode.connect(audioCtx.destination);
+        
+        clientRef.current?.enableTranslation(targetLanguage);
+      } catch (e) {
+        console.error("Failed to init audio worklet", e);
+      }
+    };
+
+    initWorklet();
+  }, [translationEnabled, localStream, targetLanguage]);
+
   const dockItems = [
     {
       title: audioMuted ? "Unmute" : "Mute",
@@ -261,6 +314,12 @@ export default function RoomInterface({
       icon: videoOff ? VideoOff : Video,
       onClick: toggleVideo,
       activeClassName: videoOff ? "bg-destructive text-black" : "",
+    },
+    {
+      title: translationEnabled ? `Translating to ${targetLanguage.toUpperCase()}` : "Translation",
+      icon: Languages,
+      onClick: () => setTranslationEnabled(!translationEnabled),
+      activeClassName: translationEnabled ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10 text-foreground",
     },
     {
       title: "Share Room",
@@ -371,6 +430,48 @@ export default function RoomInterface({
               className="w-full px-6 py-5 bg-background border border-border rounded-2xl focus:ring-2 ring-ring transition-all outline-none text-lg font-medium placeholder:text-muted-foreground"
             />
           </div>
+
+          <div className="flex items-center justify-between p-4 bg-background border border-border rounded-2xl shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-xl flex items-center justify-center transition-colors ${translationEnabled ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                <Languages size={20} />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-foreground">Live Translation</span>
+                <span className="text-xs text-muted-foreground font-medium">Hear others in your language</span>
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setTranslationEnabled(!translationEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background ${translationEnabled ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${translationEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          {translationEnabled && (
+            <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+              <label className="text-sm font-semibold text-muted-foreground ml-1">Translate to</label>
+              <select 
+                value={targetLanguage}
+                onChange={(e) => setTargetLanguage(e.target.value)}
+                className="w-full px-6 py-4 bg-background border border-border rounded-2xl outline-none font-medium appearance-none cursor-pointer focus:ring-2 ring-ring transition-all"
+              >
+                <option value="en">English (en)</option>
+                <option value="zh">Chinese (zh)</option>
+                <option value="es">Spanish (es)</option>
+                <option value="fr">French (fr)</option>
+                <option value="de">German (de)</option>
+                <option value="it">Italian (it)</option>
+                <option value="pt">Portuguese (pt)</option>
+                <option value="hi">Hindi (hi)</option>
+                <option value="ja">Japanese (ja)</option>
+                <option value="ko">Korean (ko)</option>
+                <option value="ar">Arabic (ar)</option>
+              </select>
+            </div>
+          )}
 
           {error && (
             <div className="flex items-center gap-3 text-destructive font-medium text-sm bg-destructive/10 p-4 rounded-xl border border-destructive/20 animate-in fade-in slide-in-from-top-2">
@@ -612,6 +713,15 @@ export default function RoomInterface({
             ),
           )}
       </div>
+
+      {/* Translation Overlay */}
+      {translationEnabled && translationText && (
+        <div className="absolute bottom-36 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-md px-8 py-4 rounded-full border border-primary/20 shadow-[0_0_30px_rgba(59,130,246,0.3)] min-w-[300px] text-center z-50 animate-in fade-in slide-in-from-bottom-5">
+          <p className="text-xl font-bold bg-gradient-to-r from-primary to-indigo-500 bg-clip-text text-transparent">
+            {translationText}
+          </p>
+        </div>
+      )}
 
       {/* Control Bar */}
       <div className="h-28 sticky bottom-4 w-full flex items-center justify-center mt-auto">

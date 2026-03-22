@@ -3,6 +3,8 @@ import { swaggerUI } from "@hono/swagger-ui";
 import { cors } from "hono/cors";
 import { verify, sign } from "jsonwebtoken";
 import * as mediasoup from "mediasoup";
+// @ts-ignore
+import OpusScript from "opusscript";
 
 import { mediaCodecs } from "./mediasoup.config";
 import { asyncApiSpec } from "./asyncapi";
@@ -152,6 +154,11 @@ const MessageSchema = z.discriminatedUnion("type", [
     data: z.object({ consumerId: z.string() }),
     requestId: z.string().optional(),
   }),
+  z.object({
+    type: z.literal("enable-translation"),
+    data: z.object({ targetLang: z.string(), userId: z.string() }),
+    requestId: z.string().optional(),
+  }),
 ]);
 
 // Mediasoup state
@@ -175,6 +182,9 @@ interface SocketData {
   userId: string;
   userName: string;
   roomId: string;
+  speechGatewayWs?: WebSocket;
+  translatorProducer?: mediasoup.types.Producer;
+  directTransport?: mediasoup.types.DirectTransport;
 }
 const socketToRoom = new Map<string, string>(); // websocket.id -> roomId
 
@@ -222,6 +232,15 @@ const server = Bun.serve<SocketData>({
       socketToRoom.set(ws.data.id, ws.data.roomId);
     },
     async message(ws, message) {
+      // 1. Handle Binary Audio Chunks (VAD payload from Frontend)
+      if (message instanceof Buffer || message instanceof Uint8Array) {
+         const sgWs = ws.data.speechGatewayWs;
+         if (sgWs && sgWs.readyState === WebSocket.OPEN) {
+             sgWs.send(message);
+         }
+         return;
+      }
+
       try {
         const parsed = MessageSchema.parse(JSON.parse(message as string));
         const { type, data, requestId } = parsed;
@@ -376,6 +395,124 @@ const server = Bun.serve<SocketData>({
             }
             break;
           }
+
+          case "enable-translation": {
+            const { targetLang } = data as any;
+            console.log(`[Translation] User ${ws.data.userId} requested translation to ${targetLang}`);
+            
+            // Clean up existing if any
+            if (ws.data.speechGatewayWs) {
+               ws.data.speechGatewayWs.close();
+            }
+
+            // Connect to Dockerized Python Speech Gateway
+            const sgWs = new WebSocket(`ws://speech-gateway:8003/ws/orchestrate`);
+            
+            // Native Opus encoder for TTS audio (Assume TTS output is 48kHz Mono)
+            // Initialize once per user translation session
+            let opusEncoder: any = null;
+            let sequenceNumber = 0;
+            let timestamp = 0;
+            const SSRC = Math.floor(Math.random() * 0xffffffff);
+            
+            sgWs.onopen = async () => {
+               console.log(`[Translation] Connected to Speech Gateway for user ${ws.data.userId}`);
+               try {
+                   opusEncoder = new OpusScript(48000, 1, OpusScript.Application.AUDIO);
+                   
+                   // Create DirectTransport for the Translator Bot
+                   const router = rooms.get(currentRoomId);
+                   if (router) {
+                       const transport = await router.createDirectTransport();
+                       ws.data.directTransport = transport;
+                       
+                       const producer = await transport.produce({
+                           kind: "audio",
+                           rtpParameters: {
+                               codecs: [{
+                                   mimeType: "audio/opus",
+                                   clockRate: 48000,
+                                   payloadType: 111,
+                                   channels: 2,
+                                   parameters: { useinbandfec: 1 },
+                                   rtcpFeedback: []
+                               }],
+                               encodings: [{ ssrc: SSRC }]
+                           }
+                       });
+                       ws.data.translatorProducer = producer;
+                       
+                       // Broadcast the bot's track to the room
+                       ws.publish(
+                           `room:${currentRoomId}`,
+                           JSON.stringify({
+                             type: "new-producer",
+                             data: {
+                               producerId: producer.id,
+                               kind: "audio",
+                               userName: `${ws.data.userName} (Bot)`,
+                               userId: `bot-${ws.data.userId}`,
+                             },
+                           }),
+                       );
+                   }
+               } catch (e) {
+                   console.error("DirectTransport Setup Failed", e);
+               }
+            };
+            
+            sgWs.onmessage = async (event) => {
+               if (event.data instanceof Blob || event.data instanceof Buffer) {
+                  // Received translated TTS audio (Raw PCM)
+                  if (!ws.data.directTransport || !opusEncoder) return;
+                  
+                  const buffer = event.data instanceof Buffer ? event.data : Buffer.from(await (event.data as any).arrayBuffer());
+                  
+                  // Encode PCM to Opus 
+                  // Note: Opus expects specific frame sizes (e.g. 960 samples for 20ms at 48kHz = 1920 bytes for Int16 Mono)
+                  try {
+                      const frameSize = 1920; 
+                      for (let i = 0; i < buffer.length; i += frameSize) {
+                          const chunk = buffer.slice(i, i + frameSize);
+                          if (chunk.length === frameSize) {
+                              const opusPayload = opusEncoder.encode(chunk, 960);
+                              
+                              // Simplified RTP Header generation (12 bytes)
+                              const rtpPacket = Buffer.alloc(12 + opusPayload.length);
+                              rtpPacket[0] = 0x80; // Version 2
+                              rtpPacket[1] = 111;  // Payload type (Opus)
+                              rtpPacket.writeUInt16BE(sequenceNumber++, 2);
+                              rtpPacket.writeUInt32BE(timestamp, 4);
+                              rtpPacket.writeUInt32BE(SSRC, 8);
+                              opusPayload.copy(rtpPacket, 12);
+                              
+                              // Write to Mediasoup exactly synchronously! No FFmpeg needed.
+                              (ws.data.directTransport as any).send(rtpPacket);
+                              
+                              timestamp += 960; // advance RTP timestamp by number of samples per frame
+                          }
+                      }
+                  } catch (e) {
+                      console.error("Opus encoding failed", e);
+                  }
+               } else {
+                  // Received translation text
+                  try {
+                     const parsed = JSON.parse(event.data);
+                     if (parsed.type === "translation_text") {
+                        ws.send(JSON.stringify({ type: "translation-text", data: { text: parsed.text } }));
+                     }
+                  } catch (e) {
+                     console.error("Failed parsing Speech Gateway JSON", e);
+                  }
+               }
+            };
+
+            sgWs.onerror = (err) => console.error("Speech Gateway WS Error", err);
+            
+            ws.data.speechGatewayWs = sgWs;
+            break;
+          }
         }
       } catch (err) {
         ws.send(
@@ -403,6 +540,10 @@ const server = Bun.serve<SocketData>({
             }),
           );
         }
+      }
+
+      if (ws.data.speechGatewayWs) {
+         ws.data.speechGatewayWs.close();
       }
 
       // Cleanup transports

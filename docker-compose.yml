@@ -52,3 +52,52 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # Voice Translation Services
+  asr-adapter:
+    build: apps/asr-adapter
+    container_name: asr-adapter
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models_cache:/root/.cache/huggingface
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - ASR_MODEL_ID=Qwen/Qwen2-Audio-7B-Instruct
+    restart: unless-stopped
+
+  mt-adapter:
+    build: apps/mt-adapter
+    container_name: mt-adapter
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./models_cache:/root/.cache/huggingface
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+    restart: unless-stopped
+
+  tts-adapter:
+    build: apps/tts-adapter
+    container_name: tts-adapter
+    ports:
+      - "8002:8002"
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - TTS_MODEL_ID=chatterbox-q4
+    restart: unless-stopped
+
+  speech-gateway:
+    build: apps/speech-gateway
+    container_name: speech-gateway
+    ports:
+      - "8003:8003"
+    depends_on:
+      - asr-adapter
+      - mt-adapter
+      - tts-adapter
+    environment:
+      - ASR_WS_URL=ws://asr-adapter:8000/v1/audio/stream
+      - MT_WS_URL=ws://mt-adapter:8001/ws/translate
+      - TTS_WS_URL=ws://tts-adapter:8002/ws/speech
+    restart: unless-stopped

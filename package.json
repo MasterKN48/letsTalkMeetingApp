@@ -14,6 +14,7 @@
   "homepage": "https://github.com/MasterKN48/letsTalk",
   "scripts": {
     "dev": "concurrently -n \"WEB,SERVER\" -c \"cyan,magenta\" \"bun run --cwd apps/web dev\" \"bun run --cwd apps/server dev\"",
+    "asr": "cd apps/asr-adapter && uv run main.py",
     "build": "bun --filter \"*\" build",
     "start": "bun --filter \"*\" start",
     "prepare": "husky"

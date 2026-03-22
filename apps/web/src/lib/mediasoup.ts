@@ -13,15 +13,18 @@ export class MediasoupClient {
   private onNewRemoteProducer: (producerId: string, kind: string, userName: string, userId: string) => void;
   private onRemoteProducerClosed: (producerId: string, userId: string) => void;
   private pendingRequests = new Map<string, (data: any) => void>();
+  private onTranslationText: (text: string) => void;
 
   constructor(
     roomId: string,
     onNewRemoteProducer: (producerId: string, kind: string, userName: string, userId: string) => void,
     onRemoteProducerClosed: (producerId: string, userId: string) => void,
+    onTranslationText: (text: string) => void = () => {},
   ) {
     this.roomId = roomId;
     this.onNewRemoteProducer = onNewRemoteProducer;
     this.onRemoteProducerClosed = onRemoteProducerClosed;
+    this.onTranslationText = onTranslationText;
     this.device = new Device();
   }
 
@@ -53,7 +56,12 @@ export class MediasoupClient {
             console.error('WebSocket error', err);
             reject(err);
         };
-        this.ws.onmessage = (event) => {
+        this.ws.onmessage = async (event) => {
+            if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
+                // Ignore binary messages from server if any
+                return;
+            }
+            
             const message = JSON.parse(event.data);
             const { type, requestId, data } = message;
 
@@ -64,6 +72,8 @@ export class MediasoupClient {
                 this.onNewRemoteProducer(data.producerId, data.kind, data.userName, data.userId);
             } else if (type === 'producer-closed') {
                 this.onRemoteProducerClosed(data.producerId, data.userId);
+            } else if (type === 'translation-text') {
+                this.onTranslationText(data.text);
             }
         };
     });
@@ -93,6 +103,17 @@ export class MediasoupClient {
 
   private send(type: string, data: any = {}) {
     this.ws?.send(JSON.stringify({ type, data }));
+  }
+
+  sendAudioChunk(chunk: Int16Array | Float32Array) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      // Send raw binary PCM chunks
+      this.ws.send(chunk.buffer);
+    }
+  }
+
+  enableTranslation(targetLang: string) {
+    this.send("enable-translation", { targetLang, userId: this.userId });
   }
 
   async joinRoom() {

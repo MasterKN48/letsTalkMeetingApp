@@ -1,0 +1,5 @@
+{
+  "python.analysis.extraPaths": [
+    "./apps/asr-adapter/.venv/lib/python3.12/site-packages"
+  ]
+}
