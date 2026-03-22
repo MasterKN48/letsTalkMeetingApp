@@ -3,6 +3,7 @@
 A high-performance, secure, and modern WebRTC application built with **Mediasoup (SFU)**, **Bun**, and **Next.js 16**.
 
 ## ✨ Key Features
+
 - **SFU Architecture**: Leverages Mediasoup for high-bandwidth, multi-user media routing instead of resource-intensive Mesh/P2P.
 - **Low Latency**: Sub-250ms latency for global video/audio streaming.
 - **Security First**: JWT-authenticated signaling and Mediasoup DTLS/SRTP protection.
@@ -14,13 +15,14 @@ A high-performance, secure, and modern WebRTC application built with **Mediasoup
 ## 📸 Visual Demo
 
 ### Landing Page (Light & Dark)
+
 ![Landing Page Light](docs/landingPageLight.png)
 ![Landing Page Dark](docs/landingePageDark.png)
 
-### Room Interface 
+### Room Interface
+
 ![Solo Chat Room](docs/chatRoomDark.png)
 ![Multi-person Meeting](docs/multiPersonChatRoom.png)
-
 
 ## 🛠️ Technical Stack
 
@@ -31,7 +33,6 @@ A high-performance, secure, and modern WebRTC application built with **Mediasoup
 - **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
 - **API Documentation**: [Swagger UI](https://swagger.io/) & [AsyncAPI](https://www.asyncapi.com/)
 - **Containerization**: [Docker](https://www.docker.com/) (Distroless Node)
-
 
 ## 🚀 Quick Start
 
@@ -47,14 +48,14 @@ A high-performance, secure, and modern WebRTC application built with **Mediasoup
 
 ## 📡 Architecture & Signaling Flow
 
-The application uses a dual-protocol approach: **REST** for authentication and system health, and **Secure WebSockets (WSS)** for low-latency media signaling. 
+The application uses a dual-protocol approach: **REST** for authentication and system health, and **Secure WebSockets (WSS)** for low-latency media signaling.
 
 > [!TIP]
 > For a full deep-dive including JSON examples and event references, check the **[Signaling & Media Flow Guide](docs/architecture.md)**.
 
 ### Session Lifecycle Sequence
-Below is the sequence of events between the Client (Next.js) and Server (Bun/Mediasoup) for a typical meeting session.
 
+Below is the sequence of events between the Client (Next.js) and Server (Bun/Mediasoup) for a typical meeting session.
 
 ```mermaid
 sequenceDiagram
@@ -92,19 +93,17 @@ sequenceDiagram
     S->>S: Broadcast "producer-closed" to Peers
 ```
 
-
 ## 📚 Learning & Documentation
 
 We've provided comprehensive documentation to help you understand the architecture, protocols, and deployment of this project:
 
--   **[Signaling & Media Flow](docs/architecture.md)**: Detailed events, diagrams, and example signaling data.
--   **[Signaling Server Deep-Dive](docs/server.md)**: Hono, Zod-OpenAPI, and WebSocket logic.
--   **[Web App Architecture](docs/web.md)**: Next.js 16, Mediasoup-client, and Frontend state.
--   [Mediasoup & SFU Core Concepts](docs/mediasoup.md): Routers, Transports, Producers, and Consumers.
--   [DevOps & Deployment](docs/devops.md): Docker, Husky, Compose, and Distroless security.
--   [Future Roadmap](docs/future_improvements.md): HLS Streaming and Performance Optimization.
--   [Architecture Directives](AGENTS.md): Project-level rules for AI engineering.
-
+- **[Signaling & Media Flow](docs/architecture.md)**: Detailed events, diagrams, and example signaling data.
+- **[Signaling Server Deep-Dive](docs/server.md)**: Hono, Zod-OpenAPI, and WebSocket logic.
+- **[Web App Architecture](docs/web.md)**: Next.js 16, Mediasoup-client, and Frontend state.
+- [Mediasoup & SFU Core Concepts](docs/mediasoup.md): Routers, Transports, Producers, and Consumers.
+- [DevOps & Deployment](docs/devops.md): Docker, Husky, Compose, and Distroless security.
+- [Future Roadmap](docs/future_improvements.md): Real time voice translation with voice cloning and Performance Optimization.
+- [Architecture Directives](AGENTS.md): Project-level rules for AI engineering.
 
 ## 🐳 Docker Deployment
 
@@ -116,4 +115,4 @@ docker compose up --build
 
 ---
 
-*Built with ❤️ in 2026 using the latest tech stack.*
+_Built with ❤️ in 2026 using the latest tech stack._
