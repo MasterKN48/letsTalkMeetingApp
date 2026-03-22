@@ -11,8 +11,19 @@ A high-performance, secure, and modern WebRTC application built with **Mediasoup
 - **High-Fidelity Media**: Support for 1080p60 streaming with adaptive simulcast layers (HD, SD, Low) for optimal performance.
 - **Scalable Infrastructure**: Containerized with Docker and ready for Kubernetes.
 
+## 📸 Visual Demo
+
+### Landing Page (Light & Dark)
+![Landing Page Light](docs/landingPageLight.png)
+![Landing Page Dark](docs/landingePageDark.png)
+
+### Room Interface 
+![Solo Chat Room](docs/chatRoomDark.png)
+![Multi-person Meeting](docs/multiPersonChatRoom.png)
+
 
 ## 🛠️ Technical Stack
+
 - **Runtime**: [Bun](https://bun.sh/) (Server & Tooling)
 - **Media Engine**: [Mediasoup](https://mediasoup.org/) (SFU / Selective Forwarding Unit)
 - **Backend Framework**: [Hono](https://hono.dev/) (with Zod-OpenAPI)
